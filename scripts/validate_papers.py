@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Validate papers/*.md: front matter schema, score arithmetic, tags, body sections.
+"""Validate papers/*.md (front matter schema, score arithmetic, tags, body sections) and
+tdocs/RAN1_<meeting>/<agenda>.md (RAN1 meeting summaries).
 
 Exit code 0 when every file passes, 1 otherwise. Run before every commit:
     python scripts/validate_papers.py
@@ -15,7 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
     ARXIV_ID, PAPERS_DIR, READ_LEVELS, REQUIRED, RUBRIC, SECTIONS, TAG_GROUPS, ALL_TAGS,
-    EXCLUDED_FILE, STANDARD_LEVELS, as_list, load_agendas, load_excluded, paper_files, split_front_matter,
+    EXCLUDED_FILE, STANDARD_LEVELS, TDOC_REQUIRED, TDOC_SECTIONS, TDOC_STATUS,
+    as_list, load_agendas, load_excluded, paper_files, split_front_matter, tdoc_files,
 )
 
 MAY_BE_EMPTY = {"ran1_agenda"}  # empty list = no direct current RAN1 agenda item
@@ -128,6 +130,49 @@ def check(path: Path) -> list[str]:
     return errs
 
 
+TDOC_LINK_RE = re.compile(r"https://www\.3gpp\.org/ftp/tsg_ran/WG1_RL1/(TSGR1_[0-9A-Za-z]+)/(?:Docs|Inbox)/(R1-\d{7})\.zip")
+
+
+def check_tdoc(path: Path) -> list[str]:
+    """tdocs/RAN1_<meeting>/<agenda>.md: front matter, agenda item in snapshot, sections, links."""
+    errs: list[str] = []
+    try:
+        meta, body = split_front_matter(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return [str(exc)]
+    for key in TDOC_REQUIRED:
+        if key not in meta or meta[key] in (None, ""):
+            errs.append(f"missing '{key}'")
+    meeting, agenda = str(meta.get("meeting", "")), str(meta.get("agenda", ""))
+    if path.parent.name != meeting.replace("#", "_"):
+        errs.append(f"folder '{path.parent.name}' does not match meeting '{meeting}' (expected {meeting.replace('#', '_')})")
+    if path.stem != agenda:
+        errs.append(f"file name '{path.name}' does not match agenda '{agenda}'")
+    if meeting in AGENDAS and agenda not in AGENDAS[meeting]:
+        errs.append(f"agenda '{agenda}' is not in the {meeting} snapshot")
+    elif meeting not in AGENDAS:
+        errs.append(f"no config/ran1_agenda snapshot for {meeting}; run scripts/ran1_agenda.py --meeting ...")
+    if meta.get("status") not in TDOC_STATUS:
+        errs.append(f"status must be one of {sorted(TDOC_STATUS)}")
+    if meta.get("status") == "provisional" and "잠정" not in body:
+        errs.append("status is provisional but the body never says '잠정'")
+    for key in ("history", "sources"):
+        if key in meta and not isinstance(meta[key], list):
+            errs.append(f"'{key}' must be a list")
+    if not isinstance(meta.get("tdoc_count"), int):
+        errs.append("'tdoc_count' must be an integer")
+    headings = re.findall(r"^##\s+(.+?)\s*$", body, re.M)
+    for sec in TDOC_SECTIONS:
+        if not any(sec in h for h in headings):
+            errs.append(f"missing body section containing '## {sec}'")
+    folder = "TSGR1_" + meeting.split("#", 1)[-1].replace("bis", "b")
+    for f, tdoc in TDOC_LINK_RE.findall(body):
+        if f != folder:
+            errs.append(f"link to {tdoc} points at {f}, expected {folder}")
+            break
+    return errs
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("files", nargs="*", type=Path, help="default: every papers/*.md")
@@ -155,7 +200,21 @@ def main() -> int:
         else:
             print(f"ok   {f}")
     print(f"{len(files) - bad}/{len(files)} paper files valid")
-    return 1 if bad else 0
+
+    tbad = 0
+    tfiles = [] if args.files else tdoc_files()
+    for f in tfiles:
+        errs = check_tdoc(f)
+        if errs:
+            tbad += 1
+            print(f"FAIL {f}")
+            for e in errs:
+                print(f"     - {e}")
+        else:
+            print(f"ok   {f}")
+    if tfiles:
+        print(f"{len(tfiles) - tbad}/{len(tfiles)} tdoc summaries valid")
+    return 1 if bad or tbad else 0
 
 
 if __name__ == "__main__":

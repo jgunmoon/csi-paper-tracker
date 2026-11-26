@@ -20,12 +20,21 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
-    RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, load_agendas, load_papers,
+    RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, load_agendas, load_papers, load_tdocs,
+    tdoc_page_path,
 )
 
 GROUP_LABELS = {"topic": "주제", "method": "방법", "system": "시스템"}
 AGENDAS = load_agendas()
 NO_AGENDA = "agenda-none"
+TDOCS = {(str(m.get("meeting")), str(m.get("agenda"))): (p, m, b) for p, m, b in load_tdocs()}
+
+
+def tdoc_url(item: dict, depth: int) -> str | None:
+    """Site URL of the RAN1 summary for an agenda item, relative to a page `depth` levels deep."""
+    if (item["meeting"], item["id"]) not in TDOCS:
+        return None
+    return "../" * depth + tdoc_page_path(item["meeting"], item["id"])[:-3] + "/"
 
 
 def agenda_items(meta: dict) -> list[dict]:
@@ -41,10 +50,17 @@ def agenda_token(item: dict) -> str:
 
 
 def agenda_text(meta: dict) -> str:
+    """Markdown for the paper card; links to the RAN1 Tdoc summary when one exists."""
     items = agenda_items(meta)
     if not items:
         return "현재 안건에 직접 해당 없음"
-    return "; ".join(f"{it['meeting']} {it['id']} {it.get('title', '')}".strip() for it in items)
+    parts = []
+    for it in items:
+        label = esc(f"{it['meeting']} {it['id']} {it.get('title', '')}".strip())
+        if (it["meeting"], it["id"]) in TDOCS:
+            label += f" · [Tdoc 요약](../{tdoc_page_path(it['meeting'], it['id'])})"
+        parts.append(label)
+    return "; ".join(parts)
 
 
 def esc(value) -> str:
@@ -79,7 +95,7 @@ def paper_page(meta: dict, body: str) -> str:
         f"| **Affiliation** | {'; '.join(as_list(meta.get('affiliation')))} |",
         f"| **Venue** | {meta.get('venue', '?')} |",
         f"| **Tags** | {tag_html} |",
-        f"| **3GPP 안건** | {esc(agenda_text(meta))} (관련성 {(meta.get('score_breakdown') or {}).get('standard', '?')}/15) |",
+        f"| **3GPP 안건** | {agenda_text(meta)} (관련성 {(meta.get('score_breakdown') or {}).get('standard', '?')}/15) |",
         f"| **Metrics** | {', '.join(as_list(meta.get('metrics')))} |",
         f"| **Channel model** | {meta.get('channel_model', '?')} |",
         f"| **Compression / payload** | {meta.get('compression_ratio', '?')} |",
@@ -149,8 +165,14 @@ def compare_page(papers: list[dict]) -> str:
         items = agenda_items(m)
         tokens = tags + ([agenda_token(it) for it in items] or [NO_AGENDA])
         level = (m.get("score_breakdown") or {}).get("standard", "?")
-        agenda_cell = ("<br>".join(f'<span title="{esc(it["meeting"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 40))}</span>'
-                                   for it in items) or '<span class="csi-sub">직접 해당 없음</span>')
+        cells = []
+        for it in items:
+            text = f'<span title="{esc(it["meeting"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 40))}</span>'
+            url = tdoc_url(it, 1)
+            if url:
+                text += f'<div class="csi-sub"><a href="{esc(url)}">Tdoc 요약 →</a></div>'
+            cells.append(text)
+        agenda_cell = "<br>".join(cells) or '<span class="csi-sub">직접 해당 없음</span>'
         agenda_cell += f'<div class="csi-sub">관련성 {esc(level)}/15</div>'
         search_blob = " ".join([m["title"], *as_list(m.get("authors")), *as_list(m.get("affiliation")),
                                 str(m.get("channel_model", "")), str(m.get("venue", ""))]).lower()
@@ -207,6 +229,62 @@ def rubric_page() -> str:
     ])
 
 
+def tdoc_page(meta: dict, body: str, papers: list[dict]) -> str:
+    meeting, agenda = str(meta["meeting"]), str(meta["agenda"])
+    fm = {"title": f"{meeting} {agenda} {meta['title']}"}
+    lines = ["---", yaml.safe_dump(fm, allow_unicode=True, sort_keys=False).strip(), "---", ""]
+    if meta.get("status") == "provisional":
+        lines += ['!!! warning "잠정"', "    회의 종료 의장 노트가 아직 없어 FL summary 기준으로 정리했습니다.", ""]
+    # Keep the summary's own H1 above the info card.
+    body = body.strip()
+    if body.startswith("# "):
+        h1, _, body = body.partition("\n")
+        lines[4:4] = [h1, ""]
+    related = [m for m in papers if str(m.get("ran1_meeting")) == meeting and agenda in as_list(m.get("ran1_agenda"))]
+    rel = ", ".join(f"[{m['arxiv_id']}](../../papers/{m['arxiv_id']}.md)" for m in related) or "없음"
+    lines += [
+        '<div class="csi-card" markdown>',
+        "",
+        "| | |",
+        "|---|---|",
+        f"| **회의** | {meeting} ({meta.get('venue', '?')}) |",
+        f"| **안건** | {agenda} {meta['title']} |",
+        f"| **구분** | {meta.get('release', '?')} |",
+        f"| **상태** | {'최종 (회의 종료 의장 노트·세션 노트 기준)' if meta.get('status') == 'final' else '잠정 (FL summary 기준)'} |",
+        f"| **합의 흐름에 포함한 회의** | {', '.join(as_list(meta.get('history')))} → {meeting} |",
+        f"| **Tdoc 수** | {meta.get('tdoc_count', '?')} |",
+        f"| **주요 출처** | {'<br>'.join(esc(x) for x in as_list(meta.get('sources')))} |",
+        f"| **관련 논문** | {rel} |",
+        f"| **정리일** | {meta.get('reviewed', '?')} |",
+        "",
+        "</div>",
+        "",
+        body.strip(),
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def tdoc_index_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) -> str:
+    out = ["---", "title: 3GPP Tdoc", "---", "", "# 3GPP RAN1 Tdoc 요약", "",
+           "RAN1 회의마다 트래커와 관련된 안건의 합의 사항, 업체별 입장, 평가 결과를 안건별로 정리합니다. "
+           "각 안건 요약은 이전 회의의 합의 흐름부터 시작합니다. 갱신 방법은 저장소 README의 \"3GPP Tdoc 요약\" 절을 보세요.", ""]
+    by_meeting: dict[str, list] = {}
+    for p, m, b in entries:
+        by_meeting.setdefault(str(m["meeting"]), []).append(m)
+    for meeting in sorted(by_meeting, reverse=True):
+        out += [f"## {meeting}", "", "| 안건 | 제목 | 상태 | Tdoc 수 | 관련 논문 |", "|---|---|---|---:|---:|"]
+        for m in sorted(by_meeting[meeting], key=lambda x: [int(t) for t in str(x["agenda"]).split(".") if t.isdigit()]):
+            agenda = str(m["agenda"])
+            n = sum(1 for pm in papers if str(pm.get("ran1_meeting")) == meeting and agenda in as_list(pm.get("ran1_agenda")))
+            status = "최종" if m.get("status") == "final" else "잠정"
+            out.append(f"| [{agenda}]({tdoc_page_path(meeting, agenda)[len('tdocs/'):]}) | {m['title']} | {status} | {m.get('tdoc_count', '?')} | {n} |")
+        out.append("")
+    if not entries:
+        out.append("아직 정리된 회의가 없습니다.")
+    return "\n".join(out) + "\n"
+
+
 def main() -> None:
     entries = load_papers()
     metas = []
@@ -227,6 +305,19 @@ def main() -> None:
     for m in metas:
         short = m["title"] if len(m["title"]) <= 60 else m["title"][:57].rstrip() + "…"
         nav.append(f"    * [{m['arxiv_id']} · {short}](papers/{m['arxiv_id']}.md)")
+    tdoc_entries = load_tdocs()
+    for path, tmeta, tbody in tdoc_entries:
+        virtual = tdoc_page_path(str(tmeta["meeting"]), str(tmeta["agenda"]))
+        with mkdocs_gen_files.open(virtual, "w") as f:
+            f.write(tdoc_page(tmeta, tbody, metas))
+        mkdocs_gen_files.set_edit_path(virtual, f"../tdocs/{path.parent.name}/{path.name}")
+    with mkdocs_gen_files.open("tdocs/index.md", "w") as f:
+        f.write(tdoc_index_page(tdoc_entries, metas))
+    nav.append("* [3GPP Tdoc](tdocs/index.md)")
+    for path, tmeta, _ in sorted(tdoc_entries, key=lambda e: (str(e[1]["meeting"]), [int(t) for t in str(e[1]["agenda"]).split(".") if t.isdigit()])):
+        title = str(tmeta["title"])
+        title = title if len(title) <= 40 else title[:39].rstrip() + "…"
+        nav.append(f"    * [{tmeta['meeting']} {tmeta['agenda']} {title}]({tdoc_page_path(str(tmeta['meeting']), str(tmeta['agenda']))})")
     nav.append("* [점수 기준](rubric.md)")
     with mkdocs_gen_files.open("SUMMARY.md", "w") as f:
         f.write("\n".join(nav) + "\n")

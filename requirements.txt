@@ -4,3 +4,4 @@ mkdocs-material==9.8.2
 mkdocs-gen-files==0.6.1
 mkdocs-literate-nav==0.6.3
 PyYAML>=6.0
+openpyxl==3.1.5        # RAN1 TDoc list spreadsheet (scripts/ran1_tdocs.py)

@@ -14,9 +14,12 @@ NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규
   template.md       papers/<id>.md 양식
 config/search.yaml  arXiv 검색 카테고리·키워드, Wi-Fi 센싱 걸러내기, RAN1 안건 선택 용어 (코드 수정 없이 여기서 조정)
 config/ran1_agenda/ RAN1 회의별 CSI/MIMO/AI 안건 스냅샷 (scripts/ran1_agenda.py 가 생성)
+tdocs/RAN1_<회의>/  RAN1 회의 × 안건별 Tdoc 요약 (합의 흐름, 업체 입장, 평가 결과)
+.claude/skills/ran1-tdoc-review/  RAN1 Tdoc 요약 skill
 config/excluded.yaml  검토 후 일부러 뺀 논문 ID와 이유 (다음 검색에서 다시 올라오지 않음)
 scripts/
   ran1_agenda.py    3GPP FTP에서 최신 RAN1 agenda.csv를 받아 CSI/MIMO/AI 항목을 스냅샷으로 저장
+  ran1_tdocs.py     RAN1 Tdoc 목록(xlsx)·Tdoc 다운로드·docx 텍스트 추출·의장 노트·합의 블록 추출
   arxiv_search.py   최근 N주 신규 논문 검색, papers/·제외 목록에 있는 ID 제외 → 후보 JSON
   fetch_fulltext.py arXiv HTML(없으면 PDF) 전문을 텍스트로 저장, 실패 시 exit 2 (= abstract only)
   fetch_figures.js  arXiv HTML의 그림을 PNG로 렌더링 (그래프 수치를 ≈ 로 읽기 위함, Node + Playwright)
@@ -95,6 +98,31 @@ mkdocs build --strict
 git switch -c papers/$(date +%F) origin/main
 git add papers/ config/ran1_agenda/ && git commit -m "papers: add <N> CSI papers ($(date +%F))"
 git push -u origin papers/$(date +%F)      # 이후 GitHub에서 PR 생성
+```
+
+## 3GPP Tdoc 요약 (RAN1 회의마다)
+
+사이트의 **3GPP Tdoc** 메뉴는 RAN1 회의마다 트래커와 관련된 안건을 정리합니다. 안건마다 파일 1개이며 구성은 이렇습니다.
+지금까지의 합의 흐름(이전 회의) → 이번 회의 합의 사항 → 남은 쟁점 → 업체별 입장 표 → 평가 결과 표 → 우리 업무 관점 코멘트.
+같은 안건에 대응된 논문의 비교 표·논문 페이지에는 "Tdoc 요약" 링크가 걸립니다.
+
+현재 정리된 것: **RAN1#127** 9.1.1(Case 0 CSI 압축), 9.1.2(업체 간 학습 협업), 10.5.3.1(6GR 하향링크 CSI 획득). 합의 흐름에는 #125, #126, #126bis를 포함했습니다.
+
+RAN1 회의가 끝나고 의장 노트(eom)가 올라오면 Claude Code에서:
+
+```
+/ran1-tdoc-review meeting=128 agenda=9.1.1,9.1.2,10.5.3.1 history=127
+```
+
+수동으로 자료만 모으려면:
+
+```bash
+WORK=$(mktemp -d)
+python scripts/ran1_tdocs.py list  --meeting 127 --agenda 9.1.1 --cache $WORK --json $WORK/list.json
+python scripts/ran1_tdocs.py fetch --meeting 127 --out-dir $WORK/docs R1-2609130 R1-2610445
+python scripts/ran1_tdocs.py chair --meeting 127 --out-dir $WORK/chair
+python scripts/ran1_tdocs.py agreements $WORK/chair/chair_notes_RAN1_127.txt \
+    --start "CSI spatial/frequency compression without temporal aspects" --end "Inter-vendor training collaboration"
 ```
 
 ## 주기 실행

@@ -15,6 +15,13 @@ ROOT = Path(__file__).resolve().parent.parent
 PAPERS_DIR = ROOT / "papers"
 EXCLUDED_FILE = ROOT / "config" / "excluded.yaml"
 AGENDA_DIR = ROOT / "config" / "ran1_agenda"
+TDOCS_DIR = ROOT / "tdocs"
+
+# tdocs/<RAN1_meeting>/<agenda id>.md : one RAN1 meeting x agenda item summary
+TDOC_REQUIRED = ["meeting", "agenda", "title", "release", "venue", "status", "history",
+                 "tdoc_count", "sources", "reviewed"]
+TDOC_STATUS = {"final", "provisional"}
+TDOC_SECTIONS = ["지금까지의 합의 흐름", "합의 사항", "남은 쟁점", "업체별 주요 제안", "평가 결과", "우리 업무 관점 코멘트"]
 
 # Rubric item -> max points (total 100).
 RUBRIC = {
@@ -135,6 +142,19 @@ def agenda_short(item: dict, limit: int = 48) -> str:
     if len(title) > limit:
         title = title[: limit - 1].rstrip() + "…"
     return f"{item['id']} {title}"
+
+
+def tdoc_files(tdocs_dir: Path = TDOCS_DIR) -> list[Path]:
+    return sorted(p for p in tdocs_dir.glob("*/*.md") if not p.name.startswith("_"))
+
+
+def load_tdocs(tdocs_dir: Path = TDOCS_DIR) -> list[tuple[Path, dict, str]]:
+    return [(p, *split_front_matter(p.read_text(encoding="utf-8"))) for p in tdoc_files(tdocs_dir)]
+
+
+def tdoc_page_path(meeting: str, agenda_id: str) -> str:
+    """Site path of a tdoc summary, e.g. ('RAN1#127', '9.1.1') -> 'tdocs/RAN1_127/9.1.1.md'."""
+    return f"tdocs/{meeting.replace('#', '_')}/{agenda_id}.md"
 
 
 def as_list(value) -> list[str]:

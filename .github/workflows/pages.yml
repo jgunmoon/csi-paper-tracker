@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DISABLE_MKDOCS_2_WARNING: "true"
+      NO_MKDOCS_2_WARNING: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

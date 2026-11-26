@@ -1,0 +1,12 @@
+# arXiv papers reviewed and deliberately left out of the tracker.
+# scripts/arxiv_search.py drops these IDs (like papers already in papers/), so a later
+# weekly run does not bring them back. Remove an entry to let the paper be considered again.
+#
+# id:     arXiv ID without version, e.g. "2611.18171"
+# reason: one line, why it was left out (shown in the search output and PR tables)
+# date:   when it was excluded (YYYY-MM-DD)
+
+excluded:
+  - id: "2611.18171"
+    reason: "60 GHz in-vehicle SISO received-power prediction; not cellular CSI compression/prediction"
+    date: 2026-11-26

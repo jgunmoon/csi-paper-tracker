@@ -8,14 +8,17 @@ date: 2026-11-03                  # arXiv v1 제출일
 link: https://arxiv.org/abs/2611.01234
 tags: [compression, AI, NR]       # compression|prediction (둘 다 가능), AI|non-AI, NR|6G
 read_level: full                  # full | abstract-only
+ran1_meeting: "RAN1#127"          # config/ran1_agenda/ 스냅샷의 회의 이름
+ran1_agenda: ["9.1.1"]            # 대응 안건 항목 ID. standard=7이면 []
 reviewed: 2026-11-26
 score: 0                          # = score_breakdown 합계
 score_breakdown:
-  venue: 0            # /20
+  standard: 7         # /15  3GPP 관련성: 15 | 11 | 7 (0이면 요약하지 않음)
+  venue: 0            # /10
   channel: 0          # /15
   assumptions: 0      # /15
   baselines: 0        # /10
-  reproducibility: 0  # /10
+  reproducibility: 0  # /5
   complexity: 0       # /10
   industry: 0         # /5
   tr38843: 0          # /15
@@ -62,17 +65,19 @@ headline_result: "eType II 대비 동일 payload에서 SGCS +0.05 (Table III)"
 
 ## 우리 업무 관점 코멘트
 
-- 표준화(Rel-19/20 AI/ML CSI, 6G study) 적용 가능성, 재현 난이도, 우리 평가 체계(TR 38.843 가정)와의 차이를 2–4줄.
+- 첫 줄: 어느 RAN1 안건 항목의 어떤 논점과 닿는지 (예: "9.1.1 Case 0: payload별 SGCS 비교에 바로 쓸 수 있음"). 직접 해당이 없으면 그 이유.
+- 이어서 재현 난이도, 우리 평가 체계(TR 38.843 가정)와의 차이를 1–3줄.
 
 ## 점수 근거
 
 | 항목 | 점수 | 근거 |
 |---|---:|---|
-| 게재처 | 0/20 | |
+| 3GPP 관련성 | 0/15 | 안건 항목과 대응 근거 |
+| 게재처 | 0/10 | |
 | 채널 모델 | 0/15 | |
 | 가정 현실성 | 0/15 | 15에서 감점 항목 나열 |
 | Baseline 공정성 | 0/10 | |
-| 재현성 | 0/10 | |
+| 재현성 | 0/5 | |
 | 복잡도 분석 | 0/10 | |
 | 산업체 저자 | 0/5 | |
 | TR 38.843 준수 | 0/15 | |

@@ -1,0 +1,159 @@
+{
+  "meeting": "RAN1#127",
+  "folder": "TSGR1_127",
+  "source": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_127/Agenda/agenda.csv",
+  "fetched": "2026-11-26",
+  "terms": [
+    "CSI",
+    "MIMO",
+    "multi-antenna",
+    "AI",
+    "ML",
+    "codebook",
+    "beam",
+    "SRS",
+    "precod*"
+  ],
+  "items": [
+    {
+      "id": "9.1",
+      "title": "Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements",
+      "path": [
+        "9 Release 20 NR"
+      ],
+      "release": "Release 20 NR"
+    },
+    {
+      "id": "9.1.1",
+      "title": "CSI spatial/frequency compression without temporal aspects (“Case 0”)",
+      "path": [
+        "9 Release 20 NR",
+        "9.1 Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements"
+      ],
+      "release": "Release 20 NR"
+    },
+    {
+      "id": "9.1.2",
+      "title": "Inter-vendor training collaboration for two-sided AI/ML models",
+      "path": [
+        "9 Release 20 NR",
+        "9.1 Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements"
+      ],
+      "release": "Release 20 NR"
+    },
+    {
+      "id": "9.2",
+      "title": "NR MIMO Phase 6",
+      "path": [
+        "9 Release 20 NR"
+      ],
+      "release": "Release 20 NR"
+    },
+    {
+      "id": "10.5",
+      "title": "Multi-antenna system",
+      "path": [
+        "10 Rel-20 Study of 6GR"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.1.1",
+      "title": "Synchronization acquisition and beam measurement",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.1 Initial access and mobility"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.2",
+      "title": "MIMO operation",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.2.1",
+      "title": "Downlink transmission scheme(s) for downlink control channels",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.2 MIMO operation"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.2.2",
+      "title": "Downlink transmission scheme(s) for downlink shared channels",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.2 MIMO operation"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.2.3",
+      "title": "Uplink transmission scheme(s) for uplink channels",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.2 MIMO operation"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.3",
+      "title": "CSI acquisition and report",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.3.1",
+      "title": "Aspects of downlink-based CSI acquisition",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.3 CSI acquisition and report"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.3.2",
+      "title": "Aspects of uplink-based CSI acquisition",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.3 CSI acquisition and report"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.3.3",
+      "title": "Other aspects",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.3 CSI acquisition and report"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    },
+    {
+      "id": "10.5.3.4",
+      "title": "Beam management for downlink and uplink",
+      "path": [
+        "10 Rel-20 Study of 6GR",
+        "10.5 Multi-antenna system",
+        "10.5.3 CSI acquisition and report"
+      ],
+      "release": "Rel-20 Study of 6GR"
+    }
+  ]
+}

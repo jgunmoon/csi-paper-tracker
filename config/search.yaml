@@ -21,8 +21,39 @@ keywords:
   - [Type II, codebook]
   - [eType II]
   - [6G, CSI]
+  # Added to follow current 3GPP RAN1 topics (Rel-20 NR AI/ML CSI, NR MIMO, 6GR CSI/MIMO)
+  - CSI acquisition
+  - CSI report
+  - sounding reference signal
+  - [codebook, MIMO]
+  - [precoding, CSI]
+  - [channel state information, MIMO]
+  - [CSI, massive MIMO]
+  - beam management
+  - coherent joint transmission
+  - [two-sided, CSI]
+  - [inter-vendor, AI]
+  - [upper mid-band, MIMO]
+  - [FR3, MIMO]
+  - [extremely large, MIMO]
+  - [3GPP, MIMO]
+  - [3GPP, CSI]
+  - [AI-native, air interface]
 
 # Papers whose title+abstract match none of these (case-insensitive) are moved to
 # "dropped_off_topic" in the output instead of "candidates". The skill still skims those
 # titles and can rescue a paper, so this only saves reading time; it never hides a paper.
 must_mention_any: [CSI, channel state information, codebook, precoding, MIMO, multi-antenna, 5G, 6G, OFDM]
+
+# Broad CSI terms also pull in Wi-Fi sensing papers (activity/gesture recognition etc.).
+# A paper matching any `drop_if_any` term is moved to "dropped_off_topic" unless it also
+# mentions one of `unless_any` (cellular context). Same rescue rule as above applies.
+noise_filter:
+  drop_if_any: [Wi-Fi sensing, WiFi sensing, human activity, activity recognition, gesture,
+                respiration, vital sign, fall detection, occupancy, crowd counting, keystroke]
+  unless_any: [5G, 6G, NR, 3GPP, cellular, base station, gNB, massive MIMO]
+
+# Current-standard alignment (scripts/ran1_agenda.py): agenda items whose title matches one
+# of these terms (whole word; trailing * = prefix) are kept from the newest RAN1 agenda.
+ran1_agenda:
+  terms: [CSI, MIMO, multi-antenna, AI, ML, codebook, beam, SRS, "precod*"]

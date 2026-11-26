@@ -14,19 +14,24 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 PAPERS_DIR = ROOT / "papers"
 EXCLUDED_FILE = ROOT / "config" / "excluded.yaml"
+AGENDA_DIR = ROOT / "config" / "ran1_agenda"
 
 # Rubric item -> max points (total 100).
 RUBRIC = {
-    "venue": 20,
+    "standard": 15,
+    "venue": 10,
     "channel": 15,
     "assumptions": 15,
     "baselines": 10,
-    "reproducibility": 10,
+    "reproducibility": 5,
     "complexity": 10,
     "industry": 5,
     "tr38843": 15,
 }
+# "standard" (3GPP relevance) may only take these values; see SKILL.md rubric.
+STANDARD_LEVELS = {15, 11, 7}  # 0 = not cellular -> not summarised at all
 RUBRIC_LABELS = {
+    "standard": "3GPP 관련성",
     "venue": "게재처",
     "channel": "채널 모델",
     "assumptions": "가정 현실성",
@@ -49,6 +54,7 @@ REQUIRED = [
     "arxiv_id", "title", "authors", "affiliation", "venue", "date", "link", "tags",
     "read_level", "reviewed", "score", "score_breakdown",
     "metrics", "channel_model", "compression_ratio", "headline_result",
+    "ran1_meeting", "ran1_agenda",
 ]
 READ_LEVELS = {"full", "abstract-only"}
 SECTIONS = [
@@ -110,6 +116,25 @@ def load_excluded(path: Path = EXCLUDED_FILE) -> dict[str, dict]:
             raise ValueError(f"{path.name}: {aid} is listed twice")
         out[aid] = entry
     return out
+
+
+def load_agendas(agenda_dir: Path = AGENDA_DIR) -> dict[str, dict[str, dict]]:
+    """Return {meeting: {item_id: item}} from config/ran1_agenda/RAN1_*.json snapshots."""
+    import json
+
+    out: dict[str, dict[str, dict]] = {}
+    for path in sorted(agenda_dir.glob("RAN1_*.json")):
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        out[snap["meeting"]] = {it["id"]: it for it in snap.get("items", [])}
+    return out
+
+
+def agenda_short(item: dict, limit: int = 48) -> str:
+    """Compact label for buttons/tables, e.g. '9.1.1 CSI spatial/frequency compression…'."""
+    title = item.get("title", "")
+    if len(title) > limit:
+        title = title[: limit - 1].rstrip() + "…"
+    return f"{item['id']} {title}"
 
 
 def as_list(value) -> list[str]:

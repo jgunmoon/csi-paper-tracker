@@ -1,0 +1,79 @@
+---
+arxiv_id: "2611.01234"            # 버전 제외, 파일명과 같아야 함
+title: "Paper title as on arXiv"
+authors: ["First Author", "Second Author"]
+affiliation: ["Company or University A", "University B"]   # 모르면 ["?"]
+venue: "arXiv preprint"           # 예: "IEEE TWC (accepted)", "IEEE GLOBECOM 2026", "Submitted to IEEE WCL"
+date: 2026-11-03                  # arXiv v1 제출일
+link: https://arxiv.org/abs/2611.01234
+tags: [compression, AI, NR]       # compression|prediction (둘 다 가능), AI|non-AI, NR|6G
+read_level: full                  # full | abstract-only
+reviewed: 2026-11-26
+score: 0                          # = score_breakdown 합계
+score_breakdown:
+  venue: 0            # /20
+  channel: 0          # /15
+  assumptions: 0      # /15
+  baselines: 0        # /10
+  reproducibility: 0  # /10
+  complexity: 0       # /10
+  industry: 0         # /5
+  tr38843: 0          # /15
+# 비교 표용 한 줄 요약 (≈ 규칙 동일)
+metrics: [SGCS, NMSE]
+channel_model: "3GPP CDL-C, 32T, 13 subbands"
+compression_ratio: "1/16–1/64 (48–192 bits)"   # 예측 논문은 "N/A (horizon 5 ms)" 처럼
+headline_result: "eType II 대비 동일 payload에서 SGCS +0.05 (Table III)"
+---
+
+<!-- read_level이 abstract-only이면 아래 줄을 남긴다. full이면 지운다. -->
+> ⚠️ **abstract only** — 전문을 확인하지 못해 초록만으로 작성. 수치·점수는 잠정치.
+
+## Key idea
+
+- 핵심 아이디어 2–4줄. 무엇을 새로 했고 왜 효과가 있는지.
+
+## System model
+
+- 안테나 구성(gNB Tx × UE Rx), 대역폭/서브캐리어/서브밴드, FDD/TDD, 피드백 대상(채널 행렬 vs 고유벡터/precoder), 양자화 방식.
+
+## Simulation setup
+
+| 항목 | 값 |
+|---|---|
+| 채널 모델 / 시나리오 | |
+| 반송파 · 대역폭 | |
+| 안테나 | |
+| UE 속도 | |
+| 학습 / 시험 데이터 | |
+| 지표 | |
+| Payload / 압축률 | |
+| 코드·데이터 공개 | |
+
+## Results (baseline 대비)
+
+- baseline 이름 대비 **차이**로 적는다. 예: "eType II(PC=4) 대비 같은 48 bits에서 SGCS 0.81 → 0.88 (Table III)".
+- 그래프에서 읽은 값은 `≈` + 그림 번호. 예: "NMSE ≈ −18 dB vs CRNet ≈ −14 dB (Fig. 5, CR=1/16)".
+- 복잡도: FLOPs / 파라미터 수 / 지연 (있으면).
+
+## Limitations
+
+- 저자가 밝힌 한계 + 리뷰어가 본 한계(가정, 비교 조건, 일반화 미검증 등).
+
+## 우리 업무 관점 코멘트
+
+- 표준화(Rel-19/20 AI/ML CSI, 6G study) 적용 가능성, 재현 난이도, 우리 평가 체계(TR 38.843 가정)와의 차이를 2–4줄.
+
+## 점수 근거
+
+| 항목 | 점수 | 근거 |
+|---|---:|---|
+| 게재처 | 0/20 | |
+| 채널 모델 | 0/15 | |
+| 가정 현실성 | 0/15 | 15에서 감점 항목 나열 |
+| Baseline 공정성 | 0/10 | |
+| 재현성 | 0/10 | |
+| 복잡도 분석 | 0/10 | |
+| 산업체 저자 | 0/5 | |
+| TR 38.843 준수 | 0/15 | |
+| **합계** | **0** | |

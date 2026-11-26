@@ -1,2 +1,132 @@
 # csi-paper-tracker
-csi paper research
+
+NR/6G **CSI compression(feedback)·CSI prediction** 관련 arXiv 신규 논문을 주기적으로 찾아 key idea와 시뮬레이션 결과를 요약하고,
+신뢰도/효용 점수를 매겨 팀이 함께 보는 트래커입니다.
+
+- 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
+- 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.
+
+## 구조
+
+```
+.claude/skills/csi-paper-review/
+  SKILL.md          Claude Code skill: 검색 → 선별 → 채점 → 요약 → 검증 → PR 절차와 점수 기준(rubric)
+  template.md       papers/<id>.md 양식
+config/search.yaml  arXiv 검색 카테고리·키워드 (코드 수정 없이 여기서 조정)
+scripts/
+  arxiv_search.py   최근 N주 신규 논문 검색, papers/에 있는 ID 제외 → 후보 JSON
+  fetch_fulltext.py arXiv HTML(없으면 PDF) 전문을 텍스트로 저장, 실패 시 exit 2 (= abstract only)
+  validate_papers.py front matter 스키마·점수 합계·태그·본문 섹션 검사
+  paper_schema.py   rubric 배점·태그 목록 (validate와 사이트 생성이 공유)
+  gen_pages.py      사이트 빌드 시 논문 페이지·비교 표·점수 기준·내비게이션 생성 (커밋되는 산출물 없음)
+papers/             논문 요약 파일
+docs/               사이트 고정 페이지(홈, 태그)와 CSS/JS
+mkdocs.yml          MkDocs Material 설정
+.github/workflows/pages.yml  PR: 검증+빌드 / main: 검증+빌드+Pages 배포
+```
+
+## 처음 설정 (한 번)
+
+1. **GitHub Pages 켜기**: 저장소 Settings → Pages → Build and deployment → Source를 **GitHub Actions**로 선택.
+2. 로컬에서 사이트를 보려면:
+   ```bash
+   pip install -r requirements.txt
+   mkdocs serve            # http://127.0.0.1:8000
+   ```
+3. Claude Code 클라우드 세션에서 skill을 돌릴 경우, 환경의 네트워크 허용 목록에 `export.arxiv.org`, `arxiv.org` 가 있어야 합니다.
+
+## 새 논문 추가: Claude Code skill (권장)
+
+저장소를 연 Claude Code에서:
+
+```
+/csi-paper-review                     # 기본: 최근 2주, 상위 5편
+/csi-paper-review weeks=4 top=3
+/csi-paper-review --dry-run           # 후보·점수표만 보고 파일/PR은 만들지 않음
+/csi-paper-review --ids 2611.04224    # 특정 논문만 (재처리 포함)
+```
+
+자연어로 "최근 2주 CSI 논문 리뷰 돌려줘" 라고 해도 됩니다. skill이 하는 일:
+
+1. `config/search.yaml` 키워드로 arXiv(eess.SP, cs.IT, cs.LG)를 검색하고, `papers/`에 이미 있는 arXiv ID는 건너뜁니다.
+2. 초록으로 관련성을 판정하고 예비 점수를 매겨 상위 2×top 편의 전문을 읽습니다.
+3. rubric(게재처, 채널 모델, 가정 현실성, baseline 공정성, 재현성, 복잡도, 산업체 저자, TR 38.843 준수; 100점)으로 채점합니다.
+4. 상위 top 편만 `papers/<id>.md`로 작성합니다. 그래프에서 읽은 수치는 `≈`, 전문을 못 읽은 논문은 `abstract only`로 표시합니다.
+5. `validate_papers.py`와 `mkdocs build --strict`가 통과하면 `papers/<날짜>` 브랜치에 커밋하고 **PR**을 엽니다 (main 직접 push 금지).
+   PR 본문에는 요약하지 않은 후보까지 포함한 전체 점수표가 들어갑니다.
+
+PR을 검토(점수·요약 수정 가능)한 뒤 병합하면 사이트가 갱신됩니다.
+
+## 새 논문 추가: 수동 실행 (Claude 없이)
+
+```bash
+pip install -r requirements.txt
+WORK=$(mktemp -d)
+
+# 1) 후보 검색 (최근 2주). papers/에 있는 ID는 자동 제외
+python scripts/arxiv_search.py --weeks 2 --out $WORK/candidates.json
+#    특정 ID만: python scripts/arxiv_search.py --ids 2611.04224 --out $WORK/candidates.json
+
+# 2) 읽을 논문의 전문 텍스트 받기 (exit 2면 전문 없음 → abstract only로 작성)
+python scripts/fetch_fulltext.py 2611.04224 --out-dir $WORK/fulltext
+
+# 3) 양식을 복사해서 작성
+cp .claude/skills/csi-paper-review/template.md papers/2611.04224.md
+#    점수 기준은 SKILL.md의 rubric 표 (사이트 '점수 기준' 페이지와 같음)
+
+# 4) 검증
+python scripts/validate_papers.py
+mkdocs build --strict
+
+# 5) 브랜치 → PR
+git switch -c papers/$(date +%F) origin/main
+git add papers/ && git commit -m "papers: add <N> CSI papers ($(date +%F))"
+git push -u origin papers/$(date +%F)      # 이후 GitHub에서 PR 생성
+```
+
+## 주기 실행
+
+| 방법 | 설정 | 비고 |
+|---|---|---|
+| **수동 (현재 기본)** | 매주 누군가 `/csi-paper-review` 실행 | PR 검토와 함께 하기 좋음 |
+| Claude Code 예약 작업 | Claude Code(클라우드) 세션에서 "매주 월요일 오전에 이 저장소에서 `/csi-paper-review weeks=1` 실행하는 예약 작업 만들어줘" | 해당 클라우드 환경에 arXiv 호스트 허용 필요. 결과는 PR로 옴 |
+| GitHub Actions + Claude | 아래 예시 워크플로를 `.github/workflows/weekly-review.yml`로 추가, 저장소 secret `ANTHROPIC_API_KEY` 등록 | API 사용료 발생. 예시는 이 저장소에서 실행 검증하지 않았음 |
+
+GitHub Actions 예시 (Claude Code GitHub Action 사용; 최신 입력 이름은 [action 문서](https://github.com/anthropics/claude-code-action)에서 확인):
+
+```yaml
+name: Weekly CSI paper review
+on:
+  schedule: [{cron: "17 23 * * 0"}]   # 매주 월 08:17 KST
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/csi-paper-review weeks=1 top=5"
+```
+
+## 점수 기준·검색 조건 바꾸기
+
+- **검색 키워드/카테고리**: `config/search.yaml`
+- **rubric**: `.claude/skills/csi-paper-review/SKILL.md` 의 `rubric:start`–`rubric:end` 구간. 배점을 바꾸면 `scripts/paper_schema.py` 의 `RUBRIC` 도 같이 고칩니다.
+  사이트의 '점수 기준' 페이지는 SKILL.md에서 자동으로 가져옵니다.
+- **태그 종류**: `scripts/paper_schema.py` 의 `TAG_GROUPS` (현재 compression/prediction, AI/non-AI, NR/6G)
+
+## 논문 파일 형식
+
+front matter 필수 키: `arxiv_id, title, authors, affiliation, venue, date, link, tags, read_level, reviewed, score, score_breakdown, metrics, channel_model, compression_ratio, headline_result`
+
+본문 필수 섹션: `Key idea / System model / Simulation setup / Results (baseline 대비) / Limitations / 우리 업무 관점 코멘트 / 점수 근거`
+
+자세한 양식은 `.claude/skills/csi-paper-review/template.md` 를 보세요.

@@ -1,0 +1,28 @@
+# arXiv search settings for scripts/arxiv_search.py (used by the csi-paper-review skill).
+# Edit this file to change what the weekly review looks for; no code change needed.
+
+categories: [eess.SP, cs.IT, cs.LG]
+
+# Each entry is one search clause. A string is a phrase searched in title OR abstract.
+# A list means all of its phrases must appear (AND), e.g. ["Type II", codebook].
+keywords:
+  - CSI compression
+  - CSI feedback
+  - CSI reporting
+  - CsiNet
+  - CSI prediction
+  - channel prediction
+  - channel aging
+  - implicit feedback
+  - two-sided model
+  - [AI, CSI feedback]
+  - [AI/ML, CSI]
+  - [machine learning, CSI compression]
+  - [Type II, codebook]
+  - [eType II]
+  - [6G, CSI]
+
+# Papers whose title+abstract match none of these (case-insensitive) are moved to
+# "dropped_off_topic" in the output instead of "candidates". The skill still skims those
+# titles and can rescue a paper, so this only saves reading time; it never hides a paper.
+must_mention_any: [CSI, channel state information, codebook, precoding, MIMO, multi-antenna, 5G, 6G, OFDM]

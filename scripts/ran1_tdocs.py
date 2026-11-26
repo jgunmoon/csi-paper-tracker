@@ -235,12 +235,21 @@ def cmd_agreements(args) -> int:
     the next Tdoc line, or a blank-looking heading.
     """
     lines = args.text.read_text(encoding="utf-8").splitlines()
-    try:
-        start = next(i for i, l in enumerate(lines) if args.start.lower() in l.lower())
-    except StopIteration:
+
+    def find(needle: str, begin: int) -> int | None:
+        # Prefer a line that IS the heading (e.g. "Other aspects"), so the same words inside
+        # a sentence ("results of other aspects") do not end the section early.
+        n = needle.strip().lower()
+        exact = next((i for i in range(begin, len(lines)) if lines[i].strip().lower() == n), None)
+        if exact is not None:
+            return exact
+        return next((i for i in range(begin, len(lines)) if n in lines[i].lower()), None)
+
+    start = find(args.start, 0)
+    if start is None:
         print(f"section '{args.start}' not found", file=sys.stderr)
         return 2
-    end = next((i for i in range(start + 1, len(lines)) if args.end and args.end.lower() in lines[i].lower()), len(lines))
+    end = (find(args.end, start + 1) if args.end else None) or len(lines)
     blocks, cur = [], None
     for l in lines[start:end]:
         if DECISION_RE.match(l.strip()):

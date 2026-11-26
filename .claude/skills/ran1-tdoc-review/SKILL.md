@@ -5,7 +5,7 @@ description: >
   company positions, evaluation results, our comments) into tdocs/RAN1_<meeting>/<agenda>.md,
   with the agreement history of earlier meetings, and open a PR. Use on /ran1-tdoc-review, or
   when asked "RAN1 회의 Tdoc 정리해줘", "9.1.1 합의 사항 요약", "update the Tdoc tracker".
-argument-hint: "meeting=127 agenda=9.1.1,9.1.2,10.5.3.1 [history=125,126,126b]"
+argument-hint: "meeting=128 agenda=9.1.1,9.1.2,9.2,10.5.3.1,10.5.3.2 [history=127]"
 ---
 
 # RAN1 Tdoc review
@@ -21,7 +21,8 @@ argument-hint: "meeting=127 agenda=9.1.1,9.1.2,10.5.3.1 [history=125,126,126b]"
 | `agenda` | `9.1.1,9.1.2,10.5.3.1` | 안건 ID. `config/ran1_agenda/RAN1_<meeting>.json` 스냅샷에 있어야 한다 |
 | `history` | `125,126,126b` | 합의 흐름에 넣을 이전 회의 (의장 노트의 합의 사항만) |
 
-현재 기본 범위(사용자 확정): **9.1.1, 9.1.2, 10.5.3.1**. 다음 단계 후보: 10.5.3.2, 9.2. 보류: 10.5.3.3, 10.5.3.4.
+현재 기본 범위(사용자 확정): **9.1.1, 9.1.2, 9.2, 10.5.3.1, 10.5.3.2**. 보류: 10.5.3.3, 10.5.3.4.
+9.2(NR MIMO Ph6)처럼 규격 세부 단계에 들어간 안건은 평가 결과가 없을 수 있다. 그때는 `## 평가 결과`에 그렇다고 적고 합의 위주로 정리한다.
 회의 번호가 바뀌어도 안건 번호가 같은 주제라는 보장은 없다. 스냅샷 제목으로 확인한다.
 
 ```bash
@@ -50,6 +51,7 @@ python scripts/ran1_tdocs.py chair --meeting <meeting> --out-dir $WORK/chair    
 python scripts/ran1_tdocs.py chair --meeting <이전 회의> --out-dir $WORK/chair                 # history 회의마다
 python scripts/ran1_tdocs.py agreements $WORK/chair/chair_notes_RAN1_<m>.txt \
     --start "<안건 제목>" --end "<다음 안건 제목>"                                              # 합의·결론 블록만
+# 제목과 정확히 같은 줄을 먼저 찾고, 없을 때만 부분 일치. 출력의 "lines a-b" 범위가 너무 짧으면 경계를 확인한다.
 ```
 
 - `chair` 출력의 상태가 `draft` 면 회의가 아직 안 끝난 것이다. 그때는 최신 FL summary로 쓰고 `status: provisional` + 본문에 "잠정".

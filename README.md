@@ -16,6 +16,7 @@ config/search.yaml  arXiv 검색 카테고리·키워드 (코드 수정 없이 �
 scripts/
   arxiv_search.py   최근 N주 신규 논문 검색, papers/에 있는 ID 제외 → 후보 JSON
   fetch_fulltext.py arXiv HTML(없으면 PDF) 전문을 텍스트로 저장, 실패 시 exit 2 (= abstract only)
+  fetch_figures.js  arXiv HTML의 그림을 PNG로 렌더링 (그래프 수치를 ≈ 로 읽기 위함, Node + Playwright)
   validate_papers.py front matter 스키마·점수 합계·태그·본문 섹션 검사
   paper_schema.py   rubric 배점·태그 목록 (validate와 사이트 생성이 공유)
   gen_pages.py      사이트 빌드 시 논문 페이지·비교 표·점수 기준·내비게이션 생성 (커밋되는 산출물 없음)
@@ -69,6 +70,10 @@ python scripts/arxiv_search.py --weeks 2 --out $WORK/candidates.json
 
 # 2) 읽을 논문의 전문 텍스트 받기 (exit 2면 전문 없음 → abstract only로 작성)
 python scripts/fetch_fulltext.py 2611.04224 --out-dir $WORK/fulltext
+
+#    결과 그림을 PNG로 받아 그래프 값을 읽기 (Node + Playwright 필요:
+#    npm install playwright && npx playwright install chromium)
+node scripts/fetch_figures.js 2611.04224 --out-dir $WORK/figs --match "Fig. 3:"
 
 # 3) 양식을 복사해서 작성
 cp .claude/skills/csi-paper-review/template.md papers/2611.04224.md

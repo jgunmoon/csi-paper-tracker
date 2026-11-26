@@ -13,6 +13,7 @@ NR/6G **CSI compression(feedback)·CSI prediction** 관련 arXiv 신규 논문�
   SKILL.md          Claude Code skill: 검색 → 선별 → 채점 → 요약 → 검증 → PR 절차와 점수 기준(rubric)
   template.md       papers/<id>.md 양식
 config/search.yaml  arXiv 검색 카테고리·키워드 (코드 수정 없이 여기서 조정)
+config/excluded.yaml  검토 후 일부러 뺀 논문 ID와 이유 (다음 검색에서 다시 올라오지 않음)
 scripts/
   arxiv_search.py   최근 N주 신규 논문 검색, papers/에 있는 ID 제외 → 후보 JSON
   fetch_fulltext.py arXiv HTML(없으면 PDF) 전문을 텍스트로 저장, 실패 시 exit 2 (= abstract only)
@@ -49,7 +50,7 @@ mkdocs.yml          MkDocs Material 설정
 
 자연어로 "최근 2주 CSI 논문 리뷰 돌려줘" 라고 해도 됩니다. skill이 하는 일:
 
-1. `config/search.yaml` 키워드로 arXiv(eess.SP, cs.IT, cs.LG)를 검색하고, `papers/`에 이미 있는 arXiv ID는 건너뜁니다.
+1. `config/search.yaml` 키워드로 arXiv(eess.SP, cs.IT, cs.LG)를 검색하고, `papers/`에 이미 있거나 `config/excluded.yaml`에 있는 arXiv ID는 건너뜁니다.
 2. 초록으로 관련성을 판정하고 예비 점수를 매겨 상위 2×top 편의 전문을 읽습니다.
 3. rubric(게재처, 채널 모델, 가정 현실성, baseline 공정성, 재현성, 복잡도, 산업체 저자, TR 38.843 준수; 100점)으로 채점합니다.
 4. 상위 top 편만 `papers/<id>.md`로 작성합니다. 그래프에서 읽은 수치는 `≈`, 전문을 못 읽은 논문은 `abstract only`로 표시합니다.
@@ -124,6 +125,8 @@ jobs:
 ## 점수 기준·검색 조건 바꾸기
 
 - **검색 키워드/카테고리**: `config/search.yaml`
+- **제외 목록**: `config/excluded.yaml`. PR 검토 중 논문을 빼면 `papers/<id>.md` 를 지우고 여기에 `id`, `reason`, `date` 를 추가합니다.
+  다시 검토하고 싶으면 항목을 지우면 됩니다. `validate_papers.py` 는 제외 목록과 `papers/` 가 겹치면 실패합니다.
 - **rubric**: `.claude/skills/csi-paper-review/SKILL.md` 의 `rubric:start`–`rubric:end` 구간. 배점을 바꾸면 `scripts/paper_schema.py` 의 `RUBRIC` 도 같이 고칩니다.
   사이트의 '점수 기준' 페이지는 SKILL.md에서 자동으로 가져옵니다.
 - **태그 종류**: `scripts/paper_schema.py` 의 `TAG_GROUPS` (현재 compression/prediction, AI/non-AI, NR/6G)

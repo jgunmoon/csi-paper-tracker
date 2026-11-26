@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
     ARXIV_ID, PAPERS_DIR, READ_LEVELS, REQUIRED, RUBRIC, SECTIONS, TAG_GROUPS, ALL_TAGS,
-    as_list, paper_files, split_front_matter,
+    EXCLUDED_FILE, as_list, load_excluded, paper_files, split_front_matter,
 )
 
 ABSTRACT_BANNER = "abstract only"
@@ -97,11 +97,22 @@ def check(path: Path) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("files", nargs="*", type=Path, help="default: every papers/*.md")
+    ap.add_argument("--excluded", type=Path, default=EXCLUDED_FILE, help="exclusion list to check against")
     args = ap.parse_args()
     files = args.files or paper_files(PAPERS_DIR)
+
+    try:
+        excluded = load_excluded(args.excluded)
+    except Exception as exc:  # malformed YAML or entry
+        print(f"FAIL {args.excluded}\n     - {exc}")
+        return 1
+
     bad = 0
     for f in files:
         errs = check(f)
+        if f.stem in excluded:
+            errs.append(f"{f.stem} is in {args.excluded.name} (excluded: {excluded[f.stem].get('reason', '')}); "
+                        f"delete the paper file or remove the exclusion entry")
         if errs:
             bad += 1
             print(f"FAIL {f}")

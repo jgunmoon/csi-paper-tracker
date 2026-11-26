@@ -40,6 +40,8 @@ python scripts/arxiv_search.py --weeks <N> --out $WORK/candidates.json
   CsiNet, CSI·channel prediction, channel aging, AI/ML CSI, Type II·eType II codebook, 6G CSI 등).
   키워드마다 따로 조회해서 합친다(arXiv 파서가 큰 OR 쿼리에서 결과를 빠뜨림).
 - `papers/<id>.md` 가 이미 있는 ID는 `skipped_existing` 로 빠진다.
+- `config/excluded.yaml` 에 있는 ID(검토 후 일부러 뺀 논문)는 `skipped_excluded` 로 빠진다. 이유도 함께 나온다.
+  이 논문들은 되살리지 않는다. 다시 검토하려면 사용자가 그 항목을 지운 뒤 실행한다.
 - 제목+초록에 CSI/MIMO/5G/6G 등 기본 용어가 전혀 없는 논문은 `dropped_off_topic` 으로 따로 나온다.
   **제목을 훑어 관련 있어 보이면 후보로 되살린다.**
 - arXiv가 막히면(403/타임아웃): `export.arxiv.org`, `arxiv.org` 접근이 필요하다고 사용자에게 알리고,
@@ -139,9 +141,18 @@ PR은 `gh pr create` 또는 GitHub MCP `create_pull_request` 로 연다 (base: `
 PR 제목: `papers: <YYYY-MM-DD> CSI review (<K> papers)`
 
 PR 본문:
-1. **실행 조건**: weeks, 검색 기간, arXiv 반환 수 / 관련 판정 수 / 이미 있어 제외 / off-topic 제외 수
+1. **실행 조건**: weeks, 검색 기간, arXiv 반환 수 / 관련 판정 수 / 이미 있어 제외 / 제외 목록으로 제외 / off-topic 제외 수
 2. **전체 후보 점수표** (요약하지 않은 논문 포함): ID, 제목, 예비 점수, 최종 점수(전문 읽은 경우), 선정/탈락 사유
 3. **추가된 논문**: 파일 링크, 점수, `read_level`
 4. **검증 결과**: `validate_papers.py`, `mkdocs build --strict`
 
 `--dry-run`이면 6단계를 건너뛰고 2번 점수표만 출력한다.
+
+## 7. PR 검토 중 논문을 뺄 때
+
+리뷰어가 "이 논문은 빼자"고 하면, 같은 PR 브랜치에서 두 가지를 함께 한다.
+
+1. `papers/<id>.md` 삭제
+2. `config/excluded.yaml` 에 항목 추가 (`id`, 한 줄 `reason`, `date`)
+
+그래야 다음 주 실행이 같은 논문을 다시 후보로 올리지 않는다. `validate_papers.py` 는 제외 목록과 `papers/` 가 겹치면 실패한다.

@@ -24,6 +24,9 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paper_schema import load_excluded  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 API = "https://export.arxiv.org/api/query"
 NS = {"a": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
@@ -160,6 +163,9 @@ def main() -> int:
     ap.add_argument("--config", type=Path, default=ROOT / "config" / "search.yaml")
     ap.add_argument("--papers-dir", type=Path, default=ROOT / "papers")
     ap.add_argument("--include-existing", action="store_true", help="do not drop IDs already in papers/")
+    ap.add_argument("--excluded", type=Path, default=ROOT / "config" / "excluded.yaml",
+                    help="IDs reviewed and left out on purpose (default config/excluded.yaml)")
+    ap.add_argument("--include-excluded", action="store_true", help="do not drop IDs listed in --excluded")
     ap.add_argument("--today", type=dt.date.fromisoformat, default=dt.date.today())
     ap.add_argument("--out", type=Path, help="write JSON here (default: stdout)")
     args = ap.parse_args()
@@ -182,6 +188,22 @@ def main() -> int:
     papers = list(seen.values())
     if mode == "search":
         papers = [p for p in papers if p["published"] >= start.isoformat()]
+    in_window = len(papers)
+
+    # Already summarised, or reviewed and left out on purpose: drop before the off-topic
+    # split, so neither can reappear through the "rescue off-topic titles" step.
+    have = set() if args.include_existing else existing_ids(args.papers_dir)
+    duplicates = sorted(p["id"] for p in papers if p["id"] in have)
+    papers = [p for p in papers if p["id"] not in have]
+
+    excluded = {} if args.include_excluded else load_excluded(args.excluded)
+    skipped_excluded = [{"id": p["id"], "title": p["title"], "reason": str(excluded[p["id"]].get("reason", ""))}
+                        for p in papers if p["id"] in excluded]
+    papers = [p for p in papers if p["id"] not in excluded]
+    if mode == "ids":
+        for s in skipped_excluded:
+            print(f"warning: {s['id']} is in {args.excluded.name} ({s['reason']}); "
+                  f"pass --include-excluded to process it anyway", file=sys.stderr)
 
     must = [m.lower() for m in cfg.get("must_mention_any", [])]
     off_topic = []
@@ -192,21 +214,19 @@ def main() -> int:
             (keep if any(m in blob for m in must) else off_topic).append(p)
         papers = keep
 
-    have = set() if args.include_existing else existing_ids(args.papers_dir)
-    duplicates = sorted(p["id"] for p in papers if p["id"] in have)
-    papers = [p for p in papers if p["id"] not in have]
-
     result = {
         "mode": mode,
         "window": {"from": start.isoformat(), "to": args.today.isoformat(), "weeks": args.weeks},
         "counts": {
             "returned_by_arxiv": len(found),
-            "unique_in_window": len(seen) if mode == "ids" else len(papers) + len(duplicates),
+            "unique_in_window": in_window,
             "dropped_off_topic": len(off_topic),
             "skipped_existing": len(duplicates),
+            "skipped_excluded": len(skipped_excluded),
             "candidates": len(papers),
         },
         "skipped_existing": duplicates,
+        "skipped_excluded": skipped_excluded,
         "dropped_off_topic": [{"id": p["id"], "title": p["title"]} for p in off_topic],
         "candidates": papers,
     }
@@ -215,7 +235,8 @@ def main() -> int:
         args.out.write_text(blob + "\n", encoding="utf-8")
         c = result["counts"]
         print(f"{c['candidates']} candidates ({c['skipped_existing']} already in papers/, "
-              f"{c['dropped_off_topic']} off-topic) -> {args.out}", file=sys.stderr)
+              f"{c['skipped_excluded']} excluded, {c['dropped_off_topic']} off-topic) -> {args.out}",
+              file=sys.stderr)
     else:
         print(blob)
     return 0

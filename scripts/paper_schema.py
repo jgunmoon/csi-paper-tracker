@@ -13,6 +13,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 PAPERS_DIR = ROOT / "papers"
+EXCLUDED_FILE = ROOT / "config" / "excluded.yaml"
 
 # Rubric item -> max points (total 100).
 RUBRIC = {
@@ -82,6 +83,32 @@ def load_papers(papers_dir: Path = PAPERS_DIR) -> list[tuple[Path, dict, str]]:
     for path in paper_files(papers_dir):
         meta, body = split_front_matter(path.read_text(encoding="utf-8"))
         out.append((path, meta, body))
+    return out
+
+
+def load_excluded(path: Path = EXCLUDED_FILE) -> dict[str, dict]:
+    """Return {arxiv_id: entry} from config/excluded.yaml (empty if the file is missing).
+
+    Raises ValueError on a malformed file so a typo can't silently disable exclusions.
+    """
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    entries = data.get("excluded") or []
+    if not isinstance(entries, list):
+        raise ValueError(f"{path.name}: 'excluded' must be a list")
+    out: dict[str, dict] = {}
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict) or "id" not in entry:
+            raise ValueError(f"{path.name}: entry {i} needs an 'id'")
+        aid = str(entry["id"]).strip()
+        if not ARXIV_ID.match(aid):
+            raise ValueError(f"{path.name}: entry {i} id '{aid}' is not like 2611.01234 (no version suffix)")
+        if not str(entry.get("reason", "")).strip():
+            raise ValueError(f"{path.name}: entry {i} ({aid}) needs a 'reason'")
+        if aid in out:
+            raise ValueError(f"{path.name}: {aid} is listed twice")
+        out[aid] = entry
     return out
 
 

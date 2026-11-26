@@ -1,7 +1,7 @@
 # csi-paper-tracker
 
-NR/6G **CSI compression(feedback)·CSI prediction** 관련 arXiv 신규 논문을 주기적으로 찾아 key idea와 시뮬레이션 결과를 요약하고,
-신뢰도/효용 점수를 매겨 팀이 함께 보는 트래커입니다.
+NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규 논문을 주기적으로 찾아 key idea와 시뮬레이션 결과를 요약하고,
+**현재 3GPP RAN1 안건과의 관련성**과 신뢰도를 점수로 매겨 팀이 함께 보는 트래커입니다.
 
 - 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
 - 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.
@@ -12,10 +12,12 @@ NR/6G **CSI compression(feedback)·CSI prediction** 관련 arXiv 신규 논문�
 .claude/skills/csi-paper-review/
   SKILL.md          Claude Code skill: 검색 → 선별 → 채점 → 요약 → 검증 → PR 절차와 점수 기준(rubric)
   template.md       papers/<id>.md 양식
-config/search.yaml  arXiv 검색 카테고리·키워드 (코드 수정 없이 여기서 조정)
+config/search.yaml  arXiv 검색 카테고리·키워드, Wi-Fi 센싱 걸러내기, RAN1 안건 선택 용어 (코드 수정 없이 여기서 조정)
+config/ran1_agenda/ RAN1 회의별 CSI/MIMO/AI 안건 스냅샷 (scripts/ran1_agenda.py 가 생성)
 config/excluded.yaml  검토 후 일부러 뺀 논문 ID와 이유 (다음 검색에서 다시 올라오지 않음)
 scripts/
-  arxiv_search.py   최근 N주 신규 논문 검색, papers/에 있는 ID 제외 → 후보 JSON
+  ran1_agenda.py    3GPP FTP에서 최신 RAN1 agenda.csv를 받아 CSI/MIMO/AI 항목을 스냅샷으로 저장
+  arxiv_search.py   최근 N주 신규 논문 검색, papers/·제외 목록에 있는 ID 제외 → 후보 JSON
   fetch_fulltext.py arXiv HTML(없으면 PDF) 전문을 텍스트로 저장, 실패 시 exit 2 (= abstract only)
   fetch_figures.js  arXiv HTML의 그림을 PNG로 렌더링 (그래프 수치를 ≈ 로 읽기 위함, Node + Playwright)
   validate_papers.py front matter 스키마·점수 합계·태그·본문 섹션 검사
@@ -42,7 +44,7 @@ mkdocs.yml          MkDocs Material 설정
 저장소를 연 Claude Code에서:
 
 ```
-/csi-paper-review                     # 기본: 최근 2주, 상위 5편
+/csi-paper-review                     # 기본: 최근 2주, 상위 8편
 /csi-paper-review weeks=4 top=3
 /csi-paper-review --dry-run           # 후보·점수표만 보고 파일/PR은 만들지 않음
 /csi-paper-review --ids 2611.04224    # 특정 논문만 (재처리 포함)
@@ -50,9 +52,11 @@ mkdocs.yml          MkDocs Material 설정
 
 자연어로 "최근 2주 CSI 논문 리뷰 돌려줘" 라고 해도 됩니다. skill이 하는 일:
 
+0. 3GPP FTP에서 최신 RAN1 회의 안건을 받아 CSI·MIMO·AI 항목을 이번 실행의 기준으로 삼습니다.
 1. `config/search.yaml` 키워드로 arXiv(eess.SP, cs.IT, cs.LG)를 검색하고, `papers/`에 이미 있거나 `config/excluded.yaml`에 있는 arXiv ID는 건너뜁니다.
-2. 초록으로 관련성을 판정하고 예비 점수를 매겨 상위 2×top 편의 전문을 읽습니다.
-3. rubric(게재처, 채널 모델, 가정 현실성, baseline 공정성, 재현성, 복잡도, 산업체 저자, TR 38.843 준수; 100점)으로 채점합니다.
+2. 초록으로 **3GPP 관련성 등급**(안건 항목과 직접 일치 15 / 관련 11 / NR·6G CSI 일반 7 / 셀룰러 아님 0)을 정하고,
+   0등급은 제외합니다. 예비 점수 상위 2×top 편의 전문을 읽습니다.
+3. rubric(3GPP 관련성 15, 게재처 10, 채널 모델 15, 가정 현실성 15, baseline 공정성 10, 재현성 5, 복잡도 10, 산업체 저자 5, TR 38.843 준수 15; 100점)으로 채점합니다.
 4. 상위 top 편만 `papers/<id>.md`로 작성합니다. 그래프에서 읽은 수치는 `≈`, 전문을 못 읽은 논문은 `abstract only`로 표시합니다.
 5. `validate_papers.py`와 `mkdocs build --strict`가 통과하면 `papers/<날짜>` 브랜치에 커밋하고 **PR**을 엽니다 (main 직접 push 금지).
    PR 본문에는 요약하지 않은 후보까지 포함한 전체 점수표가 들어갑니다.
@@ -64,6 +68,9 @@ PR을 검토(점수·요약 수정 가능)한 뒤 병합하면 사이트가 갱�
 ```bash
 pip install -r requirements.txt
 WORK=$(mktemp -d)
+
+# 0) 현재 RAN1 안건 갱신 (config/ran1_agenda/RAN1_<회의>.json)
+python scripts/ran1_agenda.py
 
 # 1) 후보 검색 (최근 2주). papers/에 있는 ID는 자동 제외
 python scripts/arxiv_search.py --weeks 2 --out $WORK/candidates.json
@@ -86,7 +93,7 @@ mkdocs build --strict
 
 # 5) 브랜치 → PR
 git switch -c papers/$(date +%F) origin/main
-git add papers/ && git commit -m "papers: add <N> CSI papers ($(date +%F))"
+git add papers/ config/ran1_agenda/ && git commit -m "papers: add <N> CSI papers ($(date +%F))"
 git push -u origin papers/$(date +%F)      # 이후 GitHub에서 PR 생성
 ```
 
@@ -119,12 +126,13 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: "/csi-paper-review weeks=1 top=5"
+          prompt: "/csi-paper-review weeks=1"
 ```
 
 ## 점수 기준·검색 조건 바꾸기
 
 - **검색 키워드/카테고리**: `config/search.yaml`
+- **RAN1 안건 기준**: 매 실행마다 자동 갱신됩니다. 어떤 안건 항목을 고를지는 `config/search.yaml` 의 `ran1_agenda.terms` 로 조정합니다.
 - **제외 목록**: `config/excluded.yaml`. PR 검토 중 논문을 빼면 `papers/<id>.md` 를 지우고 여기에 `id`, `reason`, `date` 를 추가합니다.
   다시 검토하고 싶으면 항목을 지우면 됩니다. `validate_papers.py` 는 제외 목록과 `papers/` 가 겹치면 실패합니다.
 - **rubric**: `.claude/skills/csi-paper-review/SKILL.md` 의 `rubric:start`–`rubric:end` 구간. 배점을 바꾸면 `scripts/paper_schema.py` 의 `RUBRIC` 도 같이 고칩니다.
@@ -133,7 +141,7 @@ jobs:
 
 ## 논문 파일 형식
 
-front matter 필수 키: `arxiv_id, title, authors, affiliation, venue, date, link, tags, read_level, reviewed, score, score_breakdown, metrics, channel_model, compression_ratio, headline_result`
+front matter 필수 키: `arxiv_id, title, authors, affiliation, venue, date, link, tags, read_level, reviewed, score, score_breakdown, metrics, channel_model, compression_ratio, headline_result, ran1_meeting, ran1_agenda`
 
 본문 필수 섹션: `Key idea / System model / Simulation setup / Results (baseline 대비) / Limitations / 우리 업무 관점 코멘트 / 점수 근거`
 

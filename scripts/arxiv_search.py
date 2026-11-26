@@ -60,6 +60,13 @@ def build_query(entry, start: dt.date, end: dt.date) -> str:
     return f"{clause(entry)} AND {span}"
 
 
+def words_re(terms: list[str]) -> re.Pattern:
+    """Case-insensitive whole-word/phrase match for any of `terms` (empty list -> never matches)."""
+    if not terms:
+        return re.compile(r"(?!x)x")
+    return re.compile("|".join(rf"\b{re.escape(t)}\b" for t in terms), re.I)
+
+
 def label(entry) -> str:
     return " + ".join(entry) if isinstance(entry, list) else entry
 
@@ -212,6 +219,17 @@ def main() -> int:
         for p in papers:
             blob = (p["title"] + " " + p["abstract"]).lower()
             (keep if any(m in blob for m in must) else off_topic).append(p)
+        papers = keep
+
+    noise = cfg.get("noise_filter") or {}
+    if noise.get("drop_if_any") and mode == "search":
+        drop_re = words_re(noise["drop_if_any"])
+        unless_re = words_re(noise.get("unless_any") or [])
+        keep = []
+        for p in papers:
+            blob = p["title"] + " " + p["abstract"]
+            noisy = drop_re.search(blob) and not unless_re.search(blob)
+            (off_topic if noisy else keep).append(p)
         papers = keep
 
     result = {

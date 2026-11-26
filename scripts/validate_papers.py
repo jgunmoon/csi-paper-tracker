@@ -15,10 +15,40 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
     ARXIV_ID, PAPERS_DIR, READ_LEVELS, REQUIRED, RUBRIC, SECTIONS, TAG_GROUPS, ALL_TAGS,
-    EXCLUDED_FILE, as_list, load_excluded, paper_files, split_front_matter,
+    EXCLUDED_FILE, STANDARD_LEVELS, as_list, load_agendas, load_excluded, paper_files, split_front_matter,
 )
 
+MAY_BE_EMPTY = {"ran1_agenda"}  # empty list = no direct current RAN1 agenda item
+
 ABSTRACT_BANNER = "abstract only"
+
+
+AGENDAS = load_agendas()
+
+
+def check_standard(meta: dict) -> list[str]:
+    """3GPP relevance: score level, agenda items, and the meeting they come from."""
+    errs = []
+    level = (meta.get("score_breakdown") or {}).get("standard")
+    agenda = meta.get("ran1_agenda")
+    meeting = str(meta.get("ran1_meeting", ""))
+    if level not in STANDARD_LEVELS:
+        errs.append(f"score_breakdown.standard must be one of {sorted(STANDARD_LEVELS)} "
+                    f"(0 = not cellular -> do not summarise the paper)")
+    if not isinstance(agenda, list):
+        return errs + ["'ran1_agenda' must be a list of agenda item ids, e.g. [\"9.1.1\"] or []"]
+    if level in (15, 11) and not agenda:
+        errs.append(f"standard={level} needs at least one ran1_agenda item")
+    if level == 7 and agenda:
+        errs.append("standard=7 means no direct current agenda item; leave ran1_agenda empty or raise the level")
+    if meeting not in AGENDAS:
+        errs.append(f"ran1_meeting '{meeting}' has no snapshot in config/ran1_agenda/ "
+                    f"(known: {sorted(AGENDAS)}); run scripts/ran1_agenda.py")
+    else:
+        for item in agenda:
+            if str(item) not in AGENDAS[meeting]:
+                errs.append(f"ran1_agenda item '{item}' is not in the {meeting} snapshot")
+    return errs
 
 
 def check(path: Path) -> list[str]:
@@ -29,8 +59,10 @@ def check(path: Path) -> list[str]:
         return [str(exc)]
 
     for key in REQUIRED:
-        if key not in meta or meta[key] in (None, "", []):
-            errs.append(f"missing or empty '{key}'")
+        if key not in meta or meta[key] is None or meta[key] == "":
+            errs.append(f"missing '{key}'")
+        elif meta[key] == [] and key not in MAY_BE_EMPTY:
+            errs.append(f"'{key}' is empty")
 
     aid = str(meta.get("arxiv_id", ""))
     if not ARXIV_ID.match(aid):
@@ -82,6 +114,8 @@ def check(path: Path) -> list[str]:
         errs.append(f"score must be a number, got {score!r}")
     elif abs(score - total) > 1e-9:
         errs.append(f"score {score} != sum of score_breakdown {total}")
+
+    errs += check_standard(meta)
 
     headings = re.findall(r"^##\s+(.+?)\s*$", body, re.M)
     for sec in SECTIONS:

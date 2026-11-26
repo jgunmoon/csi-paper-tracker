@@ -19,9 +19,32 @@ import mkdocs_gen_files
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from paper_schema import RUBRIC, RUBRIC_LABELS, TAG_GROUPS, as_list, load_papers  # noqa: E402
+from paper_schema import (  # noqa: E402
+    RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, load_agendas, load_papers,
+)
 
 GROUP_LABELS = {"topic": "주제", "method": "방법", "system": "시스템"}
+AGENDAS = load_agendas()
+NO_AGENDA = "agenda-none"
+
+
+def agenda_items(meta: dict) -> list[dict]:
+    """Resolve a paper's ran1_agenda ids to snapshot items (unknown ids keep just the id)."""
+    meeting = str(meta.get("ran1_meeting", ""))
+    snap = AGENDAS.get(meeting, {})
+    return [dict(snap.get(str(i), {"id": str(i), "title": ""}), meeting=meeting) for i in as_list(meta.get("ran1_agenda"))]
+
+
+def agenda_token(item: dict) -> str:
+    """Space-free filter token, e.g. 'agenda-RAN1#127-9.1.1'."""
+    return f"agenda-{item['meeting']}-{item['id']}".replace(" ", "")
+
+
+def agenda_text(meta: dict) -> str:
+    items = agenda_items(meta)
+    if not items:
+        return "현재 안건에 직접 해당 없음"
+    return "; ".join(f"{it['meeting']} {it['id']} {it.get('title', '')}".strip() for it in items)
 
 
 def esc(value) -> str:
@@ -56,6 +79,7 @@ def paper_page(meta: dict, body: str) -> str:
         f"| **Affiliation** | {'; '.join(as_list(meta.get('affiliation')))} |",
         f"| **Venue** | {meta.get('venue', '?')} |",
         f"| **Tags** | {tag_html} |",
+        f"| **3GPP 안건** | {esc(agenda_text(meta))} (관련성 {(meta.get('score_breakdown') or {}).get('standard', '?')}/15) |",
         f"| **Metrics** | {', '.join(as_list(meta.get('metrics')))} |",
         f"| **Channel model** | {meta.get('channel_model', '?')} |",
         f"| **Compression / payload** | {meta.get('compression_ratio', '?')} |",
@@ -64,7 +88,7 @@ def paper_page(meta: dict, body: str) -> str:
         "",
         "</div>",
         "",
-        f'<p class="csi-total">신뢰도/효용 점수 '
+        f'<p class="csi-total">3GPP 관련성·신뢰도 점수 '
         f'<span class="csi-score {score_class(meta.get("score"))}">{esc(meta.get("score", "?"))}</span> / 100</p>',
         "",
         "| 항목 | 점수 | 배점 |",
@@ -96,6 +120,17 @@ def compare_page(papers: list[dict]) -> str:
         for t in sorted(tags, key=lambda x: (x.startswith("non"), x)):
             out.append(f'<button type="button" class="csi-filter" data-tag="{esc(t)}" aria-pressed="false">{esc(t)}</button>')
         out.append("</div>")
+    # One button per agenda item that at least one paper maps to, plus "no direct item".
+    seen: dict[str, dict] = {}
+    for m in papers:
+        for it in agenda_items(m):
+            seen.setdefault(agenda_token(it), it)
+    out.append('<div class="csi-filter-group" data-group="agenda"><span class="csi-filter-label">3GPP 안건</span>')
+    for token, it in sorted(seen.items(), key=lambda kv: [int(x) for x in kv[1]["id"].split(".") if x.isdigit()]):
+        out.append(f'<button type="button" class="csi-filter" data-tag="{esc(token)}" aria-pressed="false" '
+                   f'title="{esc(it["meeting"] + " " + it["id"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 28))}</button>')
+    out.append(f'<button type="button" class="csi-filter" data-tag="{NO_AGENDA}" aria-pressed="false">직접 해당 없음</button>')
+    out.append("</div>")
     out += [
         '<input type="search" class="csi-search" placeholder="제목·저자·채널 모델 검색" aria-label="검색">',
         '<button type="button" class="csi-reset">초기화</button>',
@@ -104,21 +139,28 @@ def compare_page(papers: list[dict]) -> str:
         "",
         '<div class="csi-table-wrap"><table class="csi-compare">',
         "<thead><tr>"
-        '<th data-sort="text">논문</th><th data-sort="text">v1</th><th>태그</th><th>지표</th>'
+        '<th data-sort="text">논문</th><th data-sort="text">v1</th><th>3GPP 안건</th><th>태그</th><th>지표</th>'
         '<th data-sort="text">채널 모델</th><th>압축률 / payload</th><th>주요 성능 (baseline 대비)</th>'
         '<th data-sort="num">점수</th></tr></thead>',
         "<tbody>",
     ]
     for m in papers:
         tags = as_list(m.get("tags"))
+        items = agenda_items(m)
+        tokens = tags + ([agenda_token(it) for it in items] or [NO_AGENDA])
+        level = (m.get("score_breakdown") or {}).get("standard", "?")
+        agenda_cell = ("<br>".join(f'<span title="{esc(it["meeting"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 40))}</span>'
+                                   for it in items) or '<span class="csi-sub">직접 해당 없음</span>')
+        agenda_cell += f'<div class="csi-sub">관련성 {esc(level)}/15</div>'
         search_blob = " ".join([m["title"], *as_list(m.get("authors")), *as_list(m.get("affiliation")),
                                 str(m.get("channel_model", "")), str(m.get("venue", ""))]).lower()
         abstract_flag = ' <span class="csi-flag" title="abstract only">abs</span>' if m.get("read_level") == "abstract-only" else ""
         out.append(
-            f'<tr data-tags="{esc(" ".join(tags))}" data-search="{esc(search_blob)}">'
+            f'<tr data-tags="{esc(" ".join(tokens))}" data-search="{esc(search_blob)}">'
             f'<td><a href="../papers/{esc(m["arxiv_id"])}/">{esc(m["title"])}</a>'
             f'<div class="csi-sub">{esc(m["arxiv_id"])} · {esc(m.get("venue", ""))}</div></td>'
             f'<td>{esc(m.get("date", ""))}</td>'
+            f'<td>{agenda_cell}</td>'
             f'<td>{" ".join(f"<span class=csi-tag>{esc(t)}</span>" for t in tags)}</td>'
             f'<td>{esc(", ".join(as_list(m.get("metrics"))))}</td>'
             f'<td>{esc(m.get("channel_model", ""))}</td>'

@@ -5,8 +5,12 @@ hide: [navigation]
 
 # CSI Paper Tracker
 
-NR/6G **CSI compression(feedback)** 과 **CSI prediction(channel aging)** 관련 arXiv 신규 논문을 주기적으로 찾아
-key idea와 시뮬레이션 결과를 요약하고, 신뢰도/효용 점수를 매겨 모아 두는 팀 트래커입니다.
+NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규 논문을 주기적으로 찾아
+key idea와 시뮬레이션 결과를 요약하고, **현재 3GPP RAN1 안건과의 관련성**과 신뢰도를 점수로 매겨 모아 두는 팀 트래커입니다.
+
+매주 실행할 때 3GPP 서버에서 최신 RAN1 회의 안건을 받아 CSI·MIMO·AI 항목을 기준으로 삼습니다
+(예: Rel-20 NR AI/ML 9.1.1 *Case 0* CSI 압축, 9.1.2 업체 간 학습 협업, 9.2 NR MIMO Phase 6, 6GR 10.5.3 CSI 획득·보고).
+각 논문은 대응하는 안건 항목과 함께 표시되고, [비교 표](compare.md)에서 안건별로 거를 수 있습니다.
 
 <div class="grid cards" markdown>
 

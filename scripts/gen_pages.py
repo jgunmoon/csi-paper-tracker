@@ -111,7 +111,7 @@ def paper_page(meta: dict, body: str) -> str:
         '<div class="csi-verdict" markdown>',
         "",
         f'<span class="csi-score {score_class(meta.get("score"))}">{esc(meta.get("score", "?"))}</span> / 100 · '
-        f"3GPP 관련성 {esc(level)}/15 · [점수 근거 ↓](#점수-근거)",
+        f"[3GPP 관련성](../rubric.md#relevance) {esc(level)}/15 · [점수 근거 ↓](#점수-근거)",
         "",
         f'<span class="csi-label">3GPP 안건</span>{agenda}',
         "",
@@ -216,7 +216,7 @@ def compare_page(papers: list[dict]) -> str:
                 text += f'<div class="csi-sub"><a href="{esc(url)}">Tdoc 요약 →</a></div>'
             cells.append(text)
         agenda_cell = "<br>".join(cells) or '<span class="csi-sub">직접 해당 없음</span>'
-        agenda_cell += f'<div class="csi-sub">관련성 {esc(level)}/15</div>'
+        agenda_cell += f'<div class="csi-sub"><a href="../rubric/#relevance" title="3GPP 관련성 등급 기준">관련성</a> {esc(level)}/15</div>'
         point = plain(first_sentence(m.get("_takeaway", "")))
         search_blob = " ".join([m["title"], *as_list(m.get("authors")), *as_list(m.get("affiliation")),
                                 str(m.get("channel_model", "")), str(m.get("venue", "")), point]).lower()
@@ -260,22 +260,52 @@ def index_page(papers: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _skill_block(text: str, name: str) -> str | None:
+    try:
+        return text.split(f"<!-- {name}:start -->", 1)[1].split(f"<!-- {name}:end -->", 1)[0].strip()
+    except IndexError:
+        return None
+
+
 def rubric_page() -> str:
-    """Copy the rubric section out of SKILL.md so the site never drifts from the skill."""
+    """Copy the 3GPP relevance grades and the rubric out of SKILL.md so the site never drifts from the skill."""
     skill = Path(__file__).resolve().parent.parent / ".claude/skills/csi-paper-review/SKILL.md"
     text = skill.read_text(encoding="utf-8")
-    try:
-        section = text.split("<!-- rubric:start -->", 1)[1].split("<!-- rubric:end -->", 1)[0]
-    except IndexError:
-        section = "rubric 구간을 SKILL.md에서 찾지 못했습니다."
-    section = section.replace("### 신뢰도/효용 Rubric", "## 신뢰도/효용 Rubric")
+    relevance = _skill_block(text, "relevance") or "3GPP 관련성 등급 구간을 SKILL.md에서 찾지 못했습니다."
+    # Skill-internal step names mean nothing on the site.
+    relevance = (relevance.replace("0.5단계 안건 항목의", "현재 RAN1 안건 항목의")
+                 .replace("0.5단계 스냅샷", "안건 스냅샷(아래 표)")
+                 .replace("| `ran1_agenda` |", "| 논문에 표시되는 안건 |"))
+    rubric = _skill_block(text, "rubric") or "rubric 구간을 SKILL.md에서 찾지 못했습니다."
+    rubric = rubric.replace("### ", "## ", 1).replace("(2단계 표)", "([3GPP 관련성 등급](#relevance) 표)")
+    # Current agenda snapshot the relevance grades are judged against.
+    latest = max(AGENDAS, key=lambda m: meeting_sort_key(m)) if AGENDAS else None
+    agenda_rows = []
+    if latest:
+        agenda_rows = [f"현재 기준 안건: **{latest}** 스냅샷 (`config/ran1_agenda/`, 논문 수집 때마다 갱신)", "",
+                       "| 안건 | 제목 | 구분 |", "|---|---|---|"]
+        for aid in sorted(AGENDAS[latest], key=agenda_sort_key):
+            it = AGENDAS[latest][aid]
+            agenda_rows.append(f"| {aid} | {esc(it.get('title', ''))} | {esc(release_label(it.get('release', '')))} |")
     return "\n".join([
         "---", "title: 점수 기준", "---", "", "# 점수 기준", "",
-        "이 페이지는 `.claude/skills/csi-paper-review/SKILL.md` 의 rubric을 그대로 가져온 것입니다. "
+        "논문 점수는 **3GPP 관련성(15점)** 과 신뢰도·재현성 항목을 합친 100점 만점입니다. "
+        "이 페이지는 `.claude/skills/csi-paper-review/SKILL.md` 의 기준을 그대로 가져온 것이라, 수집 규칙과 항상 같습니다. "
         "기준을 바꾸려면 SKILL.md를 수정하세요 (`scripts/paper_schema.py` 의 배점도 함께).",
         "",
         "점수 색: 70 이상 높음 · 50–69 중간 · 50 미만 낮음.",
-        section.strip(), "",
+        "",
+        "## 3GPP 관련성 등급 {#relevance}",
+        "",
+        "논문이 지금 RAN1에서 논의 중인 안건과 얼마나 직접 닿는지를 15 / 11 / 7 세 단계로 매깁니다. "
+        "11 이상이면 대응 안건이 논문 페이지·비교 표에 표시되고, 7이면 \"직접 해당 없음\"으로 표시됩니다.",
+        "",
+        relevance,
+        "",
+        *agenda_rows,
+        "",
+        rubric,
+        "",
     ])
 
 

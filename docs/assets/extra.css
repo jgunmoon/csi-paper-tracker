@@ -42,3 +42,10 @@ table.csi-compare td:last-child { white-space: nowrap; }
 .csi-card table { font-size: .75rem; }
 .csi-card thead { display: none; }
 .csi-card table td:first-child { white-space: nowrap; width: 11em; }
+.csi-status { padding: .6em .9em; margin: .8em 0 1.2em; border-radius: .4em; font-size: .78rem;
+  background: var(--md-default-fg-color--lightest); }
+.csi-status p { margin: 0; }
+/* Home "최근 추가 논문": on phones drop the agenda column so title and result stay readable */
+@media (max-width: 600px) {
+  .csi-recent table th:nth-child(3), .csi-recent table td:nth-child(3) { display: none; }
+}

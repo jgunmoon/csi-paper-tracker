@@ -11,6 +11,7 @@ Nothing here is committed; papers/*.md stay the single source of truth.
 """
 from __future__ import annotations
 
+import datetime as dt
 import html
 import sys
 from pathlib import Path
@@ -20,9 +21,15 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
-    RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, load_agendas, load_papers, load_tdocs,
+    ROOT, RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, load_agendas, load_papers, load_tdocs,
     tdoc_page_path,
 )
+
+KST = dt.timezone(dt.timedelta(hours=9), "KST")
+WEEKLY_RUN = (0, 8)          # Monday 08:00 KST (claude.ai scheduled task "Weekly CSI paper review")
+RECENT_DAYS = 14             # home page: papers reviewed within this many days of the newest review
+RECENT_MAX = 8
+HOME_MARKER = "<!-- home:latest -->"
 
 GROUP_LABELS = {"topic": "주제", "method": "방법", "system": "시스템"}
 AGENDAS = load_agendas()
@@ -285,6 +292,77 @@ def tdoc_index_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) -
     return "\n".join(out) + "\n"
 
 
+def next_weekly_run(now: dt.datetime) -> dt.datetime:
+    weekday, hour = WEEKLY_RUN
+    run = now.replace(hour=hour, minute=0, second=0, microsecond=0) + dt.timedelta(days=(weekday - now.weekday()) % 7)
+    return run if run > now else run + dt.timedelta(days=7)
+
+
+def tdoc_short_title(meta: dict, body: str) -> str:
+    """'RAN1#127 · 9.1.1 Case 0 CSI 압축 (two-sided 모델)' -> '9.1.1 Case 0 CSI 압축 (two-sided 모델)'."""
+    for line in body.strip().splitlines():
+        if line.startswith("# "):
+            return line[2:].split(" · ", 1)[-1].strip()
+    return f"{meta['agenda']} {meta['title']}"
+
+
+def home_latest(papers: list[dict], tdoc_entries: list[tuple[Path, dict, str]]) -> str:
+    """Generated block for the home page: status line, recent papers, latest RAN1 summaries."""
+    now = dt.datetime.now(KST)
+    run = next_weekly_run(now)
+    days = "월화수목금토일"
+    meetings = sorted({str(m["meeting"]) for _, m, _ in tdoc_entries},
+                      key=lambda x: [int(t) if t.isdigit() else 0 for t in x.replace("RAN1#", "").replace("bis", ".5").split(".")])
+    latest_meeting = meetings[-1] if meetings else None
+    out = [
+        '<div class="csi-status" markdown>',
+        "",
+        f"**논문 {len(papers)}편** · **3GPP Tdoc 요약 {len(tdoc_entries)}개**"
+        + (f" (최신 {latest_meeting})" if latest_meeting else "")
+        + f" · 마지막 업데이트 {now:%Y-%m-%d %H:%M} KST"
+        + f" · 다음 자동 수집 {run:%m월 %d일}({days[run.weekday()]}) {run:%H:%M}",
+        "",
+        "</div>",
+        "",
+        "## 최근 추가 논문",
+        "",
+    ]
+    reviewed = [m for m in papers if m.get("reviewed")]
+    if reviewed:
+        newest = max(dt.date.fromisoformat(str(m["reviewed"])) for m in reviewed)
+        since = newest - dt.timedelta(days=RECENT_DAYS - 1)
+        recent = [m for m in reviewed if dt.date.fromisoformat(str(m["reviewed"])) >= since]
+        recent.sort(key=lambda m: (-float(m.get("score", 0)), str(m.get("arxiv_id"))))
+        out += [f'<p class="csi-sub">리뷰일 {since:%Y-%m-%d} ~ {newest:%Y-%m-%d}, 점수 순 (최대 {RECENT_MAX}편)</p>', "",
+                '<div class="csi-recent" markdown>', "",
+                "| 점수 | 논문 | 3GPP 안건 | 주요 성능 (baseline 대비) |", "|---:|---|---|---|"]
+        for m in recent[:RECENT_MAX]:
+            items = agenda_items(m)
+            parts = []
+            for it in items:
+                key = (it["meeting"], it["id"])
+                if key in TDOCS:  # Korean short title of the Tdoc summary + link
+                    _, tmeta, tbody = TDOCS[key]
+                    parts.append(f"[{esc(tdoc_short_title(tmeta, tbody))}]({tdoc_page_path(*key)})")
+                else:
+                    parts.append(esc(agenda_short(it, 30)))
+            agenda = "<br>".join(parts) or '<span class="csi-sub">직접 해당 없음</span>'
+            score = f'<span class="csi-score {score_class(m.get("score"))}">{esc(m.get("score", "?"))}</span>'
+            out.append(f"| {score} | [{esc(m['title'])}](papers/{m['arxiv_id']}.md) | {agenda} | {esc(m.get('headline_result', ''))} |")
+        out += ["", "</div>", "", "[전체 비교 표 →](compare.md)", ""]
+    else:
+        out += ["아직 등록된 논문이 없습니다.", ""]
+    if latest_meeting:
+        out += [f"## 최신 3GPP RAN1 요약 ({latest_meeting})", "", "| 안건 | 핵심 |", "|---|---|"]
+        rows = [(m, b) for _, m, b in tdoc_entries if str(m["meeting"]) == latest_meeting]
+        rows.sort(key=lambda mb: [int(t) for t in str(mb[0]["agenda"]).split(".") if t.isdigit()])
+        for m, b in rows:
+            link = tdoc_page_path(str(m["meeting"]), str(m["agenda"]))
+            out.append(f"| [{esc(tdoc_short_title(m, b))}]({link}) | {esc(m.get('headline', ''))} |")
+        out += ["", "[3GPP Tdoc 전체 →](tdocs/index.md)", ""]
+    return "\n".join(out)
+
+
 def main() -> None:
     entries = load_papers()
     metas = []
@@ -313,6 +391,10 @@ def main() -> None:
         mkdocs_gen_files.set_edit_path(virtual, f"../tdocs/{path.parent.name}/{path.name}")
     with mkdocs_gen_files.open("tdocs/index.md", "w") as f:
         f.write(tdoc_index_page(tdoc_entries, metas))
+    home = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    if HOME_MARKER in home:
+        with mkdocs_gen_files.open("index.md", "w") as f:
+            f.write(home.replace(HOME_MARKER, home_latest(metas, tdoc_entries), 1))
     nav.append("* [3GPP Tdoc](tdocs/index.md)")
     for path, tmeta, _ in sorted(tdoc_entries, key=lambda e: (str(e[1]["meeting"]), [int(t) for t in str(e[1]["agenda"]).split(".") if t.isdigit()])):
         title = str(tmeta["title"])

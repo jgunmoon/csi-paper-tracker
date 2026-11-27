@@ -68,3 +68,10 @@ table.csi-compare td:last-child { white-space: nowrap; }
   color: var(--md-default-fg-color--light); }
 /* Home subtitle under the site title */
 .csi-subtitle { margin-top: -.6em; font-size: .9rem; font-weight: 500; color: var(--md-default-fg-color--light); }
+/* Company page: jump chips */
+.csi-chips { display: flex; flex-wrap: wrap; gap: .35em; margin: .6em 0 1.2em; }
+.csi-chip { font-size: .72rem; padding: .1em .6em; border-radius: 1em; border: 1px solid var(--md-default-fg-color--lighter);
+  white-space: nowrap; }
+.csi-chip span { color: var(--md-default-fg-color--light); font-size: .65rem; }
+/* Tdoc numbers (zip links) never break across lines */
+.md-typeset a[href$=".zip"] { white-space: nowrap; }

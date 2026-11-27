@@ -157,6 +157,67 @@ def tdoc_page_path(meeting: str, agenda_id: str) -> str:
     return f"tdocs/{meeting.replace('#', '_')}/{agenda_id}.md"
 
 
+def section_lines(body: str, heading: str) -> list[str]:
+    """Lines of a '## <heading>' section, up to the next '## ' heading."""
+    out, inside = [], False
+    for line in body.splitlines():
+        if line.startswith("## "):
+            if inside:
+                break
+            inside = line[3:].strip() == heading
+        elif inside:
+            out.append(line)
+    return out
+
+
+# '**RAN1#127 안건 대응: 9.1.1 (Case 0 …).** ' — the agenda is shown separately on the site.
+_AGENDA_LEAD = re.compile(r"^\*\*([^*]*안건 대응[^*]*)\*\*\s*")
+TAKEAWAY_SECTION = "우리 업무 관점 코멘트"
+
+
+def takeaway(body: str) -> str:
+    """One-line conclusion of a paper: the first bullet of '우리 업무 관점 코멘트'
+    (continuation lines joined), without its bold 'RAN1#… 안건 대응: …' lead.
+    Returns '' when the section has no bullet."""
+    bullet: list[str] = []
+    for line in section_lines(body, TAKEAWAY_SECTION):
+        if line.startswith("- "):
+            if bullet:
+                break
+            bullet.append(line[2:].strip())
+        elif bullet:
+            if not line.strip() or line.lstrip().startswith(("- ", "* ")):
+                break
+            bullet.append(line.strip())
+    text = " ".join(bullet).strip()
+    rest = _AGENDA_LEAD.sub("", text).strip()
+    if rest:
+        return rest
+    m = _AGENDA_LEAD.match(text)  # bullet is only the bold lead
+    return m.group(1).strip().rstrip(".") if m else text
+
+
+def first_sentence(text: str) -> str:
+    """First Korean sentence ('…다.'), for tight table cells."""
+    return re.split(r"(?<=다\.)\s+", text.strip(), maxsplit=1)[0]
+
+
+def plain(text: str) -> str:
+    """Drop inline Markdown emphasis/code markers for use inside raw HTML."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    return re.sub(r"`([^`]*)`", r"\1", text)
+
+
+def score_reasons(body: str) -> dict[str, str]:
+    """{rubric label: 'n/max'} from the '## 점수 근거' table."""
+    out = {}
+    for line in section_lines(body, "점수 근거"):
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 2 and re.fullmatch(r"\d+(\.\d+)?/\d+", cells[1]):
+            out[cells[0]] = cells[1]
+    return out
+
+
 def as_list(value) -> list[str]:
     if value is None:
         return []

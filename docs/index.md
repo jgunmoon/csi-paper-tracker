@@ -3,7 +3,9 @@ title: 홈
 hide: [navigation]
 ---
 
-# CSI Paper Tracker
+# NR/6G CSI Tracker
+
+<p class="csi-subtitle">arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약</p>
 
 NR/6G **CSI 압축·예측·획득** 논문과 **3GPP RAN1 논의**를 함께 추적하는 팀 트래커입니다.
 

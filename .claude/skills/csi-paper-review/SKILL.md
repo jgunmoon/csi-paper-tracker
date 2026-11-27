@@ -103,7 +103,8 @@ python scripts/fetch_fulltext.py <id> --out-dir $WORK/fulltext   # HTML → PDF 
   - exit 2(HTML 판 없음·해당 그림 없음)나 exit 1(Playwright 없음)이면 그림 수치는 `?` 로 두고 본문에 "그림 수치 미확인"이라고 적는다. 추측해서 채우지 않는다.
 - exit 2(전문 없음)이면 초록만으로 채점하고 **`read_level: abstract-only`**, 본문 맨 위에
   `> ⚠️ **abstract only** — ...` 배너를 남긴다. 근거 없는 항목은 0점, 근거 칸에 `? (abstract only)`.
-- 항목마다 **근거 1줄**(섹션/표/그림 번호)을 `## 점수 근거` 표에 남긴다.
+- 항목마다 **근거 1줄**(섹션/표/그림 번호)을 `## 점수 근거` 표에 남긴다. 사이트의 항목별 점수는 이 표로만 보이므로,
+  `점수` 칸은 `n/배점` 형식으로 front matter `score_breakdown` 과 같아야 한다 (`validate_papers.py` 가 대조).
 
 <!-- rubric:start -->
 ### 3GPP 관련성·신뢰도 Rubric (합계 100)
@@ -138,7 +139,10 @@ python scripts/fetch_fulltext.py <id> --out-dir $WORK/fulltext   # HTML → PDF 
 - Results는 반드시 **baseline 대비** 형태 (예: "eType II 대비 동일 payload에서 SGCS +0.06").
 - 논문에 없는 정보는 추측하지 말고 `N/A` 또는 `?`. 소속을 모르면 `affiliation: ["?"]`.
 - `ran1_meeting`: 0.5단계 스냅샷의 회의 이름(예: `"RAN1#127"`), `ran1_agenda`: 대응 항목 ID 목록(예: `["9.1.1"]`, 7등급이면 `[]`).
-  본문 "우리 업무 관점 코멘트" 첫 줄에 어느 안건의 어떤 논점과 닿는지(또는 왜 직접 해당이 없는지)를 적는다.
+- **한 줄 결론** = "우리 업무 관점 코멘트"의 **첫 bullet**. 형식: `- **RAN1#127 안건 대응: 9.1.1 (Case 0 …).** <결론 1–2문장>`
+  (해당 없음이면 `**RAN1#127 안건 대응: 직접 해당 없음.** <이유>`). 굵은 머리말 뒤 문장이 논문 페이지 맨 위 결론 박스에 그대로 나오고,
+  **첫 문장**은 홈 "최근 추가 논문"과 비교 표의 제목 아래에 나온다. 그래서 첫 문장만 읽어도 "어느 논점에 어떻게 쓰이는지"가 통하게 쓴다.
+  `validate_papers.py` 는 첫 bullet이 없으면 실패한다.
 - `tags`: 주제(`compression`/`prediction`, 둘 다 가능) · 방법(`AI`/`non-AI`) · 시스템(`NR`/`6G`) 각 그룹에서 하나 이상.
   NR = 3GPP NR 파라미터·코드북·Rel-18/19 기준으로 평가, 6G = 6G/beyond-5G를 표방하거나 NR 밖 설정(초대형 안테나, NTN 위주 등).
 - "우리 업무 관점 코멘트"는 현재 안건에서의 쓸모(예: Case 0 평가 가정, 업체 간 학습 협업 방식, 6GR CSI 체계 논점), 재현 난이도, 우리 평가 체계와의 차이를 2–4줄.

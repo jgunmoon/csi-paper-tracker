@@ -7,6 +7,7 @@ NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규
 관련 RAN1 안건은 회의마다 Tdoc(합의 사항, 업체별 입장, 평가 결과)을 안건별로 요약해 논문과 연결합니다.
 
 - 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
+- 비교 표의 필터·정렬 상태는 주소에 저장됩니다. 예: `compare/?agenda=127-9.1.1&min=60&sort=tr38843` (9.1.1 대응 논문 중 60점 이상, TR 38.843 점수순). 매개변수: `topic`·`method`·`system`·`agenda`(쉼표로 여러 개), `period`(`4w`/`3m`), `min`(`50`/`60`/`70`), `search`, `sort`(`date`·`score`·rubric 키, 오름차순은 `-asc`)
 - 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.
 
 ## Claude와 GitHub는 각각 무엇을 하나
@@ -176,7 +177,7 @@ git push -u origin papers/$(date +%F)      # 이후 GitHub에서 PR 생성
 
 사이트의 **3GPP Tdoc** 메뉴는 RAN1 회의마다 트래커와 관련된 안건을 정리합니다. 안건마다 파일 1개이며 구성은 이렇습니다.
 지금까지의 합의 흐름(이전 회의) → 이번 회의 합의 사항 → 남은 쟁점 → 업체별 입장 표 → 평가 결과 표 → 우리 업무 관점 코멘트.
-같은 안건에 대응된 논문의 비교 표·논문 페이지에는 "Tdoc 요약" 링크가 걸립니다.
+같은 안건에 대응된 논문의 비교 표·논문 페이지에는 "Tdoc 요약" 링크가 걸리고, Tdoc 요약 페이지의 "비교 표에서 보기"는 그 안건 논문만 거른 비교 표를 엽니다.
 
 현재 정리된 것: **RAN1#127** 9.1.1(Case 0 CSI 압축), 9.1.2(업체 간 학습 협업), 9.2(NR MIMO Phase 6), 10.5.3.1(6GR 하향링크 CSI 획득), 10.5.3.2(6GR 상향링크·SRS 기반 CSI 획득). 합의 흐름에는 #125, #126, #126bis를 포함했습니다.
 

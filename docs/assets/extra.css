@@ -20,21 +20,24 @@
   border-radius: .2em; padding: 0 .25em; }
 .csi-sub { font-size: .68rem; color: var(--md-default-fg-color--light); }
 .csi-filters { display: flex; flex-wrap: wrap; gap: .5em 1em; align-items: center; margin: 1em 0; }
-.csi-filter-group { display: flex; gap: .3em; align-items: center; }
+.csi-filter-group { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 .csi-filter-label { font-size: .7rem; color: var(--md-default-fg-color--light); margin-right: .2em; }
-.csi-filter, .csi-reset { font: inherit; font-size: .72rem; padding: .15em .7em; border-radius: 1em; cursor: pointer;
+.csi-filter, .csi-choice, .csi-reset, .csi-copy { font: inherit; font-size: .72rem; padding: .15em .7em; border-radius: 1em; cursor: pointer;
   border: 1px solid var(--md-default-fg-color--lighter); background: transparent; color: var(--md-default-fg-color); }
-.csi-filter[aria-pressed="true"] { background: var(--md-primary-fg-color); border-color: var(--md-primary-fg-color);
+.csi-filter[aria-pressed="true"], .csi-choice[aria-pressed="true"] { background: var(--md-primary-fg-color); border-color: var(--md-primary-fg-color);
   color: var(--md-primary-bg-color); }
 .csi-search { font: inherit; font-size: .75rem; padding: .25em .6em; min-width: 14em; border-radius: .3em;
   border: 1px solid var(--md-default-fg-color--lighter); background: var(--md-default-bg-color); color: var(--md-default-fg-color); }
+.csi-sort { font: inherit; font-size: .72rem; padding: .2em .4em; border-radius: .3em; cursor: pointer;
+  border: 1px solid var(--md-default-fg-color--lighter); background: var(--md-default-bg-color); color: var(--md-default-fg-color); }
 .csi-count { font-size: .72rem; color: var(--md-default-fg-color--light); }
+table.csi-compare tr.csi-empty td { text-align: center; padding: 1.5em; color: var(--md-default-fg-color--light); }
 .csi-table-wrap { overflow-x: auto; }
 table.csi-compare { font-size: .72rem; border-collapse: collapse; width: 100%; }
 table.csi-compare th, table.csi-compare td { padding: .5em .6em; vertical-align: top;
   border-bottom: 1px solid var(--md-default-fg-color--lightest); text-align: left; }
 table.csi-compare th { white-space: nowrap; }
-table.csi-compare th[data-sort] { cursor: pointer; }
+table.csi-compare th[data-key] { cursor: pointer; }
 table.csi-compare th[data-dir="asc"]::after { content: " ▲"; }
 table.csi-compare th[data-dir="desc"]::after { content: " ▼"; }
 table.csi-compare td:first-child { min-width: 16em; }

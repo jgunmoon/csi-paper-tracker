@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import html
+import json
 import sys
 from pathlib import Path
 
@@ -21,8 +22,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
-    ROOT, TAG_GROUPS, agenda_short, as_list, first_sentence, load_agendas, load_papers, load_tdocs, plain,
-    takeaway, tdoc_page_path,
+    ROOT, RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, first_sentence, load_agendas, load_papers,
+    load_tdocs, plain, takeaway, tdoc_page_path,
 )
 
 KST = dt.timezone(dt.timedelta(hours=9), "KST")
@@ -49,6 +50,17 @@ def agenda_items(meta: dict) -> list[dict]:
     meeting = str(meta.get("ran1_meeting", ""))
     snap = AGENDAS.get(meeting, {})
     return [dict(snap.get(str(i), {"id": str(i), "title": ""}), meeting=meeting) for i in as_list(meta.get("ran1_agenda"))]
+
+
+def agenda_key(item: dict) -> str:
+    """Short URL key for an agenda filter, e.g. 'RAN1#127' + '9.1.1' -> '127-9.1.1'."""
+    return f"{item['meeting'].replace('RAN1#', '')}-{item['id']}".replace(" ", "")
+
+
+def compare_link(item: dict, depth: int) -> str:
+    """Markdown link target: the compare table pre-filtered to one agenda item (query state, see compare.js).
+    `depth` = folders between the linking page's source file and the docs root."""
+    return "../" * depth + f"compare.md?agenda={agenda_key(item)}"
 
 
 def agenda_token(item: dict) -> str:
@@ -141,15 +153,16 @@ def compare_page(papers: list[dict]) -> str:
         "",
         "# 논문 비교",
         "",
-        "태그 버튼으로 거르고, 열 제목을 눌러 정렬합니다. 같은 그룹 안에서는 OR, 그룹끼리는 AND로 적용됩니다. "
-        "수치 앞의 `≈`는 논문 그래프에서 읽은 값입니다.",
+        "버튼으로 거르고 정렬 메뉴나 열 제목으로 정렬합니다. 같은 그룹 안의 버튼은 OR, 그룹끼리는 AND로 적용됩니다. "
+        "고른 조건은 주소에 저장되므로 **링크 복사**로 팀원에게 같은 화면을 보낼 수 있습니다. "
+        "기간은 arXiv v1 제출일 기준이고, 수치 앞의 `≈`는 논문 그래프에서 읽은 값입니다.",
         "",
         '<div class="csi-filters">',
     ]
     for group, tags in TAG_GROUPS.items():
         out.append(f'<div class="csi-filter-group" data-group="{group}"><span class="csi-filter-label">{GROUP_LABELS[group]}</span>')
         for t in sorted(tags, key=lambda x: (x.startswith("non"), x)):
-            out.append(f'<button type="button" class="csi-filter" data-tag="{esc(t)}" aria-pressed="false">{esc(t)}</button>')
+            out.append(f'<button type="button" class="csi-filter" data-tag="{esc(t)}" data-key="{esc(t)}" aria-pressed="false">{esc(t)}</button>')
         out.append("</div>")
     # One button per agenda item that at least one paper maps to, plus "no direct item".
     seen: dict[str, dict] = {}
@@ -158,21 +171,34 @@ def compare_page(papers: list[dict]) -> str:
             seen.setdefault(agenda_token(it), it)
     out.append('<div class="csi-filter-group" data-group="agenda"><span class="csi-filter-label">3GPP 안건</span>')
     for token, it in sorted(seen.items(), key=lambda kv: [int(x) for x in kv[1]["id"].split(".") if x.isdigit()]):
-        out.append(f'<button type="button" class="csi-filter" data-tag="{esc(token)}" aria-pressed="false" '
+        out.append(f'<button type="button" class="csi-filter" data-tag="{esc(token)}" data-key="{esc(agenda_key(it))}" aria-pressed="false" '
                    f'title="{esc(it["meeting"] + " " + it["id"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 28))}</button>')
-    out.append(f'<button type="button" class="csi-filter" data-tag="{NO_AGENDA}" aria-pressed="false">직접 해당 없음</button>')
+    out.append(f'<button type="button" class="csi-filter" data-tag="{NO_AGENDA}" data-key="none" aria-pressed="false">직접 해당 없음</button>')
     out.append("</div>")
+    # Single-choice groups: v1 period and minimum total score ("all" = no limit).
+    for param, label, options in (("period", "기간", [("4w", "최근 4주"), ("3m", "최근 3개월"), ("all", "전체")]),
+                                  ("min", "점수", [("all", "전체"), ("50", "50+"), ("60", "60+"), ("70", "70+")])):
+        out.append(f'<div class="csi-filter-group" data-param="{param}"><span class="csi-filter-label">{label}</span>')
+        for value, text in options:
+            pressed = "true" if value == "all" else "false"
+            out.append(f'<button type="button" class="csi-choice" data-value="{value}" aria-pressed="{pressed}">{text}</button>')
+        out.append("</div>")
+    sort_options = [("date", "최신순 (v1)"), ("score", "총점")] + [(k, RUBRIC_LABELS[k]) for k in RUBRIC]
     out += [
+        '<div class="csi-filter-group"><label class="csi-filter-label" for="csi-sort">정렬</label>'
+        '<select id="csi-sort" class="csi-sort"><option value="" hidden>열 제목 기준</option>'
+        + "".join(f'<option value="{k}">{esc(t)}</option>' for k, t in sort_options) + "</select></div>",
         '<input type="search" class="csi-search" placeholder="제목·저자·채널 모델·코멘트 검색" aria-label="검색">',
         '<button type="button" class="csi-reset">초기화</button>',
-        '<span class="csi-count"></span>',
+        '<button type="button" class="csi-copy">링크 복사</button>',
+        '<span class="csi-count" aria-live="polite"></span>',
         "</div>",
         "",
         '<div class="csi-table-wrap"><table class="csi-compare">',
         "<thead><tr>"
-        '<th data-sort="text">논문</th><th data-sort="text">v1</th><th>3GPP 안건</th><th>태그</th><th>지표</th>'
-        '<th data-sort="text">채널 모델</th><th>압축률 / payload</th><th>주요 성능 (baseline 대비)</th>'
-        '<th data-sort="num">점수</th></tr></thead>',
+        '<th data-key="title">논문</th><th data-key="date">v1</th><th>3GPP 안건</th><th>태그</th><th>지표</th>'
+        '<th data-key="channel">채널 모델</th><th>압축률 / payload</th><th>주요 성능 (baseline 대비)</th>'
+        '<th data-key="score">점수</th></tr></thead>',
         "<tbody>",
     ]
     for m in papers:
@@ -197,8 +223,10 @@ def compare_page(papers: list[dict]) -> str:
                       f'<div class="csi-sub">{esc(m["arxiv_id"])} · {esc(m.get("venue", ""))}</div>')
         if point:
             title_cell += f'<div class="csi-takeaway">{esc(point)}</div>'
+        scores = json.dumps({k: (m.get("score_breakdown") or {}).get(k, 0) for k in RUBRIC}, separators=(",", ":"))
         out.append(
-            f'<tr data-tags="{esc(" ".join(tokens))}" data-search="{esc(search_blob)}">'
+            f'<tr data-tags="{esc(" ".join(tokens))}" data-search="{esc(search_blob)}" data-date="{esc(m.get("date", ""))}" '
+            f'data-score="{esc(m.get("score", 0))}" data-scores="{esc(scores)}">'
             f'<td>{title_cell}</td>'
             f'<td>{esc(m.get("date", ""))}</td>'
             f'<td>{agenda_cell}</td>'
@@ -211,7 +239,8 @@ def compare_page(papers: list[dict]) -> str:
             f'{esc(m.get("score", "?"))}</span>{abstract_flag}</td>'
             "</tr>"
         )
-    out += ["</tbody></table></div>", ""]
+    out += ['<tr class="csi-empty" hidden><td colspan="9">조건에 맞는 논문이 없습니다. 조건을 줄이거나 <b>초기화</b>를 누르세요.</td></tr>',
+            "</tbody></table></div>", ""]
     if not papers:
         out.append("아직 등록된 논문이 없습니다.")
     return "\n".join(out)
@@ -261,6 +290,8 @@ def tdoc_page(meta: dict, body: str, papers: list[dict]) -> str:
         lines[4:4] = [h1, ""]
     related = [m for m in papers if str(m.get("ran1_meeting")) == meeting and agenda in as_list(m.get("ran1_agenda"))]
     rel = ", ".join(f"[{m['arxiv_id']}](../../papers/{m['arxiv_id']}.md)" for m in related) or "없음"
+    if related:
+        rel += f" · [비교 표에서 보기 →]({compare_link({'meeting': meeting, 'id': agenda}, 2)})"
     lines += [
         '<div class="csi-card" markdown>',
         "",

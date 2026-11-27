@@ -369,21 +369,82 @@ def companies_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) ->
     return "\n".join(out) + "\n"
 
 
+# Parent agenda groups for the Tdoc menu and index (Korean labels; others fall back to the snapshot title).
+TDOC_GROUP_LABELS = {"9.1": "NR AI/ML CSI", "9.2": "NR MIMO Phase 6", "10.5.3": "6GR CSI 획득·보고"}
+
+
+def meeting_sort_key(meeting: str) -> list:
+    """'RAN1#127' < 'RAN1#127bis' < 'RAN1#128'."""
+    num = meeting.replace("RAN1#", "")
+    digits = "".join(ch for ch in num if ch.isdigit())
+    return [int(digits or 0), num[len(digits):]]
+
+
+def agenda_sort_key(agenda: str) -> list:
+    return [int(t) for t in agenda.split(".") if t.isdigit()]
+
+
+def release_label(release: str) -> str:
+    return "6GR study" if "6GR" in release else release.replace("Release ", "Rel-").replace(" NR", "")
+
+
+def tdoc_groups(entries: list[tuple[Path, dict, str]]) -> list[dict]:
+    """[{id, label, items: [{agenda, short, meetings: {meeting: (meta, body)}}]}] ordered by agenda number.
+
+    An item's group is its nearest parent agenda item in the meeting's snapshot (9.1.1 -> 9.1,
+    10.5.3.1 -> 10.5.3); a top-level item such as 9.2 is its own group. Grouping is by agenda id;
+    if RAN1 renumbers a topic later, the snapshot titles show it and this needs a manual mapping.
+    """
+    groups: dict[str, dict] = {}
+    for _, meta, body in entries:
+        meeting, agenda = str(meta["meeting"]), str(meta["agenda"])
+        snap = AGENDAS.get(meeting, {})
+        parts = agenda.split(".")
+        gid = next((".".join(parts[:k]) for k in range(len(parts) - 1, 0, -1) if ".".join(parts[:k]) in snap), agenda)
+        gitem = snap.get(gid, {"title": str(meta.get("title", "")), "release": str(meta.get("release", ""))})
+        title = TDOC_GROUP_LABELS.get(gid) or (gitem["title"] if len(gitem["title"]) <= 40 else gitem["title"][:39] + "…")
+        group = groups.setdefault(gid, {"id": gid, "label": f"{title} ({gid}, {release_label(gitem.get('release', ''))})", "items": {}})
+        item = group["items"].setdefault(agenda, {"agenda": agenda, "meetings": {}})
+        item["meetings"][meeting] = (meta, body)
+    out = []
+    for gid in sorted(groups, key=agenda_sort_key):
+        g = groups[gid]
+        items = []
+        for agenda in sorted(g["items"], key=agenda_sort_key):
+            it = g["items"][agenda]
+            latest = max(it["meetings"], key=meeting_sort_key)
+            it["short"] = tdoc_short_title(*it["meetings"][latest])
+            items.append(it)
+        out.append({"id": gid, "label": g["label"], "items": items})
+    return out
+
+
 def tdoc_index_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) -> str:
-    out = ["---", "title: 3GPP Tdoc", "---", "", "# 3GPP RAN1 Tdoc 요약", "",
+    """Agenda x meeting map: one table per parent agenda group, one column per meeting (newest first)."""
+    out = ["---", "title: 3GPP Tdoc 요약", "---", "", "# 3GPP RAN1 Tdoc 요약", "",
            "RAN1 회의마다 트래커와 관련된 안건의 합의 사항, 업체별 입장, 평가 결과를 안건별로 정리합니다. "
            "각 안건 요약은 이전 회의의 합의 흐름부터 시작합니다. 갱신 방법은 저장소 README의 \"3GPP Tdoc 요약\" 절을 보세요.", "",
            "업체 한 곳이 여러 안건에서 낸 Tdoc과 입장을 모아 보려면 **[업체별 입장](companies.md)** 페이지를 보세요.", ""]
-    by_meeting: dict[str, list] = {}
-    for p, m, b in entries:
-        by_meeting.setdefault(str(m["meeting"]), []).append(m)
-    for meeting in sorted(by_meeting, reverse=True):
-        out += [f"## {meeting}", "", "| 안건 | 제목 | 상태 | Tdoc 수 | 관련 논문 |", "|---|---|---|---:|---:|"]
-        for m in sorted(by_meeting[meeting], key=lambda x: [int(t) for t in str(x["agenda"]).split(".") if t.isdigit()]):
-            agenda = str(m["agenda"])
-            n = sum(1 for pm in papers if str(pm.get("ran1_meeting")) == meeting and agenda in as_list(pm.get("ran1_agenda")))
-            status = "최종" if m.get("status") == "final" else "잠정"
-            out.append(f"| [{agenda}]({tdoc_page_path(meeting, agenda)[len('tdocs/'):]}) | {m['title']} | {status} | {m.get('tdoc_count', '?')} | {n} |")
+    meetings = sorted({str(m["meeting"]) for _, m, _ in entries}, key=meeting_sort_key, reverse=True)
+    if meetings:
+        out += ['<p class="csi-sub">안건 × 회의 지도: 칸마다 그 회의의 핵심 한 줄과 상태·Tdoc 수·관련 논문 수. 왼쪽 열이 최신 회의입니다.</p>', ""]
+    for group in tdoc_groups(entries):
+        out += [f"## {group['label']}", "",
+                "| 안건 | " + " | ".join(meetings) + " |",
+                "|---|" + "---|" * len(meetings)]
+        for it in group["items"]:
+            cells = []
+            for meeting in meetings:
+                if meeting not in it["meetings"]:
+                    cells.append('<span class="csi-sub">–</span>')
+                    continue
+                meta, _ = it["meetings"][meeting]
+                link = tdoc_page_path(meeting, it["agenda"])[len("tdocs/"):]
+                n = sum(1 for pm in papers if str(pm.get("ran1_meeting")) == meeting and it["agenda"] in as_list(pm.get("ran1_agenda")))
+                status = "최종" if meta.get("status") == "final" else "잠정"
+                sub = f"{status} · Tdoc {meta.get('tdoc_count', '?')}편" + (f" · 관련 논문 {n}편" if n else "")
+                cells.append(f"[{esc(meta.get('headline', '요약 보기'))}]({link})<br><span class=\"csi-sub\">{sub}</span>")
+            out.append(f"| **{esc(it['short'])}** | " + " | ".join(cells) + " |")
         out.append("")
     if not entries:
         out.append("아직 정리된 회의가 없습니다.")
@@ -452,7 +513,7 @@ def home_latest(papers: list[dict], tdoc_entries: list[tuple[Path, dict, str]]) 
         for m, b in rows:
             link = tdoc_page_path(str(m["meeting"]), str(m["agenda"]))
             out.append(f"| [{esc(tdoc_short_title(m, b))}]({link}) | {esc(m.get('headline', ''))} |")
-        out += ["", "[3GPP Tdoc 전체 →](tdocs/index.md)", ""]
+        out += ["", "[3GPP Tdoc 요약 전체 →](tdocs/index.md)", ""]
     return "\n".join(out)
 
 
@@ -491,12 +552,17 @@ def main() -> None:
     if HOME_MARKER in home:
         with mkdocs_gen_files.open("index.md", "w") as f:
             f.write(home.replace(HOME_MARKER, home_latest(metas, tdoc_entries), 1))
-    nav.append("* [3GPP Tdoc](tdocs/index.md)")
+    nav.append("* [3GPP Tdoc 요약](tdocs/index.md)")
     nav.append("    * [업체별 입장](tdocs/companies.md)")
-    for path, tmeta, _ in sorted(tdoc_entries, key=lambda e: (str(e[1]["meeting"]), [int(t) for t in str(e[1]["agenda"]).split(".") if t.isdigit()])):
-        title = str(tmeta["title"])
-        title = title if len(title) <= 40 else title[:39].rstrip() + "…"
-        nav.append(f"    * [{tmeta['meeting']} {tmeta['agenda']} {title}]({tdoc_page_path(str(tmeta['meeting']), str(tmeta['agenda']))})")
+    for group in tdoc_groups(tdoc_entries):
+        nav.append(f"    * {group['label']}")
+        for it in group["items"]:
+            ms = sorted(it["meetings"], key=meeting_sort_key, reverse=True)
+            if len(ms) == 1:
+                nav.append(f"        * [{it['short']}]({tdoc_page_path(ms[0], it['agenda'])})")
+            else:  # several meetings: agenda becomes a sub-section, newest meeting first
+                nav.append(f"        * {it['short']}")
+                nav += [f"            * [{m}]({tdoc_page_path(m, it['agenda'])})" for m in ms]
     nav.append("* [점수 기준](rubric.md)")
     with mkdocs_gen_files.open("SUMMARY.md", "w") as f:
         f.write("\n".join(nav) + "\n")

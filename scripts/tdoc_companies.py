@@ -164,13 +164,8 @@ def _short(text: str, limit: int = 26) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def link_section(body: str) -> tuple[str, set[str]]:
-    """Return (body with linked topic tables + per-company summary, unmatched names)."""
-    bounds = section_bounds(body)
-    if not bounds:
-        return body, set()
-    start, end = bounds
-    section = body[start:end]
+def _process(section: str) -> tuple[list[str], dict[str, dict], dict[str, list[str]], set[str]]:
+    """Link names in the topic tables; return (lines, companies, positions per company, unmatched)."""
     companies = company_tdocs(section)
     unmatched: set[str] = set()
     positions: dict[str, list[str]] = {}
@@ -206,6 +201,45 @@ def link_section(body: str) -> tuple[str, set[str]]:
                         record(normalise(hit[0]), label)
             cells[col] = link_cell(cells[col], companies, unmatched)
         lines[i] = "| " + " | ".join(cells) + " |"
+    return lines, companies, positions, unmatched
+
+
+def company_anchor(key: str) -> str:
+    """Stable heading id on the company page, e.g. 'huawei' -> 'c-huawei'."""
+    return f"c-{key}"
+
+
+def collect(body: str) -> dict[str, dict]:
+    """Per-company data of one summary: {key: {name, links, positions, proposal}}.
+
+    `proposal` is the "핵심 제안" cell of the company's own row in the company Tdoc table (if any).
+    """
+    bounds = section_bounds(body)
+    if not bounds:
+        return {}
+    section = body[bounds[0]:bounds[1]]
+    _, companies, positions, _ = _process(section)
+    out = {k: dict(v, positions=positions.get(k, []), proposal="") for k, v in companies.items()}
+    for line in section.splitlines():
+        cells = _cells(line) if line.lstrip().startswith("|") else []
+        if len(cells) >= 3 and cells[1].startswith("[R1-") and not cells[0].startswith(("그 밖", "전체")):
+            key = normalise(cells[0])
+            if key in out and cells[2] and "위 주제별 표" not in cells[2]:
+                out[key]["proposal"] = cells[2]
+    return out
+
+
+def link_section(body: str, company_page: str | None = None) -> tuple[str, set[str]]:
+    """Return (body with linked topic tables + per-company summary, unmatched names).
+
+    `company_page`: relative link to the all-meetings company page; company names in the
+    per-company table then link to their section there.
+    """
+    bounds = section_bounds(body)
+    if not bounds:
+        return body, set()
+    start, end = bounds
+    lines, companies, positions, unmatched = _process(body[start:end])
     new_section = "\n".join(lines)
     if positions:
         hint = ('\n<p class="csi-sub">주제별 표의 업체 이름을 누르면 그 업체의 Tdoc 원문(zip)을 받습니다. '
@@ -222,6 +256,9 @@ def link_section(body: str) -> tuple[str, set[str]]:
         for key, items in rows:
             entry = companies[key]
             links = " ".join(f"[{t}]({u})" for t, u in entry["links"])
-            table.append(f"    | {entry['name']} | {links} | {'<br>'.join(items)} |")
+            name = entry["name"]
+            if company_page:
+                name = f"[{name}]({company_page}#{company_anchor(key)})"
+            table.append(f"    | {name} | {links} | {'<br>'.join(items)} |")
         new_section = new_section.rstrip("\n") + "\n" + "\n".join(table) + "\n\n"
     return body[:start] + new_section + body[end:], unmatched

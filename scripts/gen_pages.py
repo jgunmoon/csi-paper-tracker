@@ -21,7 +21,7 @@ import mkdocs_gen_files
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tdoc_companies import link_section  # noqa: E402
+from tdoc_companies import collect, company_anchor, link_section, normalise  # noqa: E402
 from paper_schema import (  # noqa: E402
     ROOT, RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, first_sentence, load_agendas, load_papers,
     load_tdocs, plain, takeaway, tdoc_page_path,
@@ -36,6 +36,7 @@ HOME_MARKER = "<!-- home:latest -->"
 GROUP_LABELS = {"topic": "주제", "method": "방법", "system": "시스템"}
 AGENDAS = load_agendas()
 NO_AGENDA = "agenda-none"
+NO_POSITION = '<span class="csi-sub">입장 미표기 (요약에 Tdoc만)</span>'
 TDOCS = {(str(m.get("meeting")), str(m.get("agenda"))): (p, m, b) for p, m, b in load_tdocs()}
 
 
@@ -285,7 +286,7 @@ def tdoc_page(meta: dict, body: str, papers: list[dict]) -> str:
     if meta.get("status") == "provisional":
         lines += ['!!! warning "잠정"', "    회의 종료 의장 노트가 아직 없어 FL summary 기준으로 정리했습니다.", ""]
     # Company names in the topic tables -> their Tdoc links, plus a per-company position table.
-    body, _ = link_section(body.strip())
+    body, _ = link_section(body.strip(), company_page="../companies.md")
     # Keep the summary's own H1 above the info card.
     body = body.strip()
     if body.startswith("# "):
@@ -318,10 +319,61 @@ def tdoc_page(meta: dict, body: str, papers: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def companies_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) -> str:
+    """All meetings x agenda items, grouped by company: Tdocs, positions, key proposal, related papers."""
+    by_company: dict[str, dict] = {}
+    order = sorted(entries, key=lambda e: (str(e[1]["meeting"]), [int(t) for t in str(e[1]["agenda"]).split(".") if t.isdigit()]))
+    for _, meta, body in order:
+        meeting, agenda = str(meta["meeting"]), str(meta["agenda"])
+        for key, c in collect(body).items():
+            entry = by_company.setdefault(key, {"name": c["name"], "rows": []})
+            entry["rows"].append((meeting, agenda, tdoc_short_title(meta, body), c))
+    # Papers whose affiliation names the company ("Samsung Research", "Nokia Bell Labs" -> samsung, nokia).
+    for m in papers:
+        for aff in as_list(m.get("affiliation")):
+            for key in {normalise(aff), normalise(aff.split(" ")[0])}:
+                if key in by_company:
+                    by_company[key].setdefault("papers", {})[m["arxiv_id"]] = m
+    ranked = sorted(by_company.items(), key=lambda kv: (-len({(r[0], r[1]) for r in kv[1]["rows"]}), kv[1]["name"].lower()))
+    out = ["---", "title: 업체별 입장", "---", "", "# 업체별 입장 (3GPP RAN1)", "",
+           "Tdoc 요약의 \"업체별 주요 제안\" 절을 업체 기준으로 다시 모은 페이지입니다. 업체마다 안건별 Tdoc 원문 링크, "
+           "주제별 입장(FL summary·Summary of proposals 기준), 핵심 제안, 소속이 같은 트래커 논문을 보여 줍니다. "
+           "요약 파일에서 자동으로 만들어지며, 요약에 Tdoc 링크가 없는 업체는 나오지 않습니다.", "",
+           f'<p class="csi-sub">업체 {len(ranked)}곳 · 괄호 안은 등장한 안건 수 · 많은 순</p>', "",
+           '<div class="csi-chips">']
+    for key, c in ranked:
+        n = len({(r[0], r[1]) for r in c["rows"]})
+        out.append(f'<a class="csi-chip" href="#{company_anchor(key)}">{esc(c["name"])} <span>{n}</span></a>')
+    out += ["</div>", ""]
+    for key, c in ranked:
+        agendas = {(r[0], r[1]) for r in c["rows"]}
+        tdocs = {t for r in c["rows"] for t, _ in r[3]["links"]}
+        rel = list(c.get("papers", {}).values())
+        out += [f"## {c['name']} {{#{company_anchor(key)}}}", "",
+                f'<p class="csi-sub">안건 {len(agendas)}개 · Tdoc {len(tdocs)}편'
+                + (f" · 관련 논문 {len(rel)}편" if rel else "") + "</p>", "",
+                "| 회의 · 안건 | Tdoc | 입장 · 핵심 제안 |", "|---|---|---|"]
+        for meeting, agenda, short, data in c["rows"]:
+            link = tdoc_page_path(meeting, agenda)[len("tdocs/"):]
+            links = " ".join(f"[{t}]({u})" for t, u in data["links"])
+            detail = list(data["positions"])
+            if data["proposal"]:
+                detail.append(f"**핵심**: {data['proposal']}")
+            cell = "<br>".join(detail) or NO_POSITION
+            out.append(f"| {meeting} · [{esc(short)}]({link}) | {links} | {cell} |")
+        if rel:
+            out += ["", "관련 논문 (소속 기준): " + ", ".join(f"[{esc(m['title'])}](../papers/{m['arxiv_id']}.md)" for m in rel)]
+        out.append("")
+    if not ranked:
+        out.append("아직 정리된 Tdoc 요약이 없습니다.")
+    return "\n".join(out) + "\n"
+
+
 def tdoc_index_page(entries: list[tuple[Path, dict, str]], papers: list[dict]) -> str:
     out = ["---", "title: 3GPP Tdoc", "---", "", "# 3GPP RAN1 Tdoc 요약", "",
            "RAN1 회의마다 트래커와 관련된 안건의 합의 사항, 업체별 입장, 평가 결과를 안건별로 정리합니다. "
-           "각 안건 요약은 이전 회의의 합의 흐름부터 시작합니다. 갱신 방법은 저장소 README의 \"3GPP Tdoc 요약\" 절을 보세요.", ""]
+           "각 안건 요약은 이전 회의의 합의 흐름부터 시작합니다. 갱신 방법은 저장소 README의 \"3GPP Tdoc 요약\" 절을 보세요.", "",
+           "업체 한 곳이 여러 안건에서 낸 Tdoc과 입장을 모아 보려면 **[업체별 입장](companies.md)** 페이지를 보세요.", ""]
     by_meeting: dict[str, list] = {}
     for p, m, b in entries:
         by_meeting.setdefault(str(m["meeting"]), []).append(m)
@@ -433,11 +485,14 @@ def main() -> None:
         mkdocs_gen_files.set_edit_path(virtual, f"../tdocs/{path.parent.name}/{path.name}")
     with mkdocs_gen_files.open("tdocs/index.md", "w") as f:
         f.write(tdoc_index_page(tdoc_entries, metas))
+    with mkdocs_gen_files.open("tdocs/companies.md", "w") as f:
+        f.write(companies_page(tdoc_entries, metas))
     home = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
     if HOME_MARKER in home:
         with mkdocs_gen_files.open("index.md", "w") as f:
             f.write(home.replace(HOME_MARKER, home_latest(metas, tdoc_entries), 1))
     nav.append("* [3GPP Tdoc](tdocs/index.md)")
+    nav.append("    * [업체별 입장](tdocs/companies.md)")
     for path, tmeta, _ in sorted(tdoc_entries, key=lambda e: (str(e[1]["meeting"]), [int(t) for t in str(e[1]["agenda"]).split(".") if t.isdigit()])):
         title = str(tmeta["title"])
         title = title if len(title) <= 40 else title[:39].rstrip() + "…"

@@ -69,7 +69,9 @@ python scripts/ran1_tdocs.py agreements $WORK/chair/chair_notes_RAN1_<m>.txt \
 
 `tdocs/RAN1_<meeting>/<agenda>.md` (회의 이름의 `#` → `_`, 예: `tdocs/RAN1_127/9.1.1.md`). 기존 파일 3개를 양식으로 삼는다.
 
-front matter: `meeting, agenda, title, release, venue, status(final|provisional), history, tdoc_count, sources, reviewed`
+front matter: `meeting, agenda, title, headline, release, venue, status(final|provisional), history, tdoc_count, sources, reviewed`
+
+`headline`은 이번 회의의 핵심 한 줄(주요 합의 + 가장 큰 미결 쟁점)로, 사이트 홈의 "최신 3GPP RAN1 요약" 표에 그대로 나온다. 본문 첫 줄의 H1(`# RAN1#<회의> · <안건> <한국어 짧은 제목>`)은 홈·논문 표의 안건 이름으로 쓰인다.
 
 본문 절 (순서 고정):
 1. `## 지금까지의 합의 흐름` — history 회의별(주제가 많으면 주제 × 회의 표) 합의 요약

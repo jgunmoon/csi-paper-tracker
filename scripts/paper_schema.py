@@ -18,7 +18,7 @@ AGENDA_DIR = ROOT / "config" / "ran1_agenda"
 TDOCS_DIR = ROOT / "tdocs"
 
 # tdocs/<RAN1_meeting>/<agenda id>.md : one RAN1 meeting x agenda item summary
-TDOC_REQUIRED = ["meeting", "agenda", "title", "release", "venue", "status", "history",
+TDOC_REQUIRED = ["meeting", "agenda", "title", "headline", "release", "venue", "status", "history",
                  "tdoc_count", "sources", "reviewed"]
 TDOC_STATUS = {"final", "provisional"}
 TDOC_SECTIONS = ["지금까지의 합의 흐름", "합의 사항", "남은 쟁점", "업체별 주요 제안", "평가 결과", "우리 업무 관점 코멘트"]

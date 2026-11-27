@@ -8,7 +8,8 @@ NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규
 
 - 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
 - 비교 표의 필터·정렬 상태는 주소에 저장됩니다. 예: `compare/?agenda=127-9.1.1&min=60&sort=tr38843` (9.1.1 대응 논문 중 60점 이상, TR 38.843 점수순). 매개변수: `topic`·`method`·`system`·`agenda`(쉼표로 여러 개), `period`(`4w`/`3m`), `min`(`50`/`60`/`70`), `search`, `sort`(`date`·`score`·rubric 키, 오름차순은 `-asc`)
-- 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.
+- 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 논문 목록, 비교 표는 모두 이 파일에서 만들어집니다.
+- 사이트 메뉴: **홈 · 논문**(논문 목록, 비교 표) **· 3GPP Tdoc 요약**(안건 × 회의 지도, 업체별 입장, 안건별 요약) **· 안내**(사용 안내, 점수 기준). 처음 보는 사람용 설명은 사이트의 '안내 › 사용 안내'(`docs/guide.md`)에 있습니다.
 
 ## Claude와 GitHub는 각각 무엇을 하나
 
@@ -100,7 +101,8 @@ scripts/
   paper_schema.py   rubric 배점·태그 목록 (validate와 사이트 생성이 공유)
   gen_pages.py      사이트 빌드 시 논문 페이지·비교 표·점수 기준·내비게이션 생성 (커밋되는 산출물 없음)
 papers/             논문 요약 파일
-docs/               사이트 고정 페이지(홈, 태그)와 CSS/JS
+docs/               사이트 고정 페이지(홈, 사용 안내)와 CSS/JS
+includes/abbreviations.md  사이트 전체에 붙는 용어 툴팁(SGCS, NMSE, eType II …)
 mkdocs.yml          MkDocs Material 설정
 .github/workflows/pages.yml  PR: 검증+빌드 / main: 검증+빌드+Pages 배포
 ```

@@ -97,7 +97,7 @@ python scripts/validate_papers.py      # papers/ + tdocs/ (front matter, 스냅�
 mkdocs build --strict
 ```
 
-사이트에서는 "3GPP Tdoc" 메뉴에 회의 × 안건 페이지가 생기고, 같은 안건에 대응된 논문의 비교 표·논문 페이지에서 "Tdoc 요약" 링크가 걸린다.
+사이트에서는 "3GPP Tdoc 요약" 메뉴의 상위 안건 묶음 아래에 안건 페이지가 생기고, 같은 안건에 대응된 논문의 비교 표·논문 페이지에서 "Tdoc 요약" 링크가 걸린다.
 
 ## 6. 브랜치 · 커밋 · PR
 

@@ -75,3 +75,15 @@ table.csi-compare td:last-child { white-space: nowrap; }
 .csi-chip span { color: var(--md-default-fg-color--light); font-size: .65rem; }
 /* Tdoc numbers (zip links) never break across lines */
 .md-typeset a[href$=".zip"] { white-space: nowrap; }
+/* Paper page: where the page sits (papers are not in the menu) */
+.csi-crumb { font-size: .72rem; margin: 0 0 -.6em; color: var(--md-default-fg-color--light); }
+/* Tag chips that link to the compare filter */
+a.csi-tag { color: inherit; }
+a.csi-tag:hover { background: var(--md-accent-fg-color--transparent); }
+/* Home cards: compact */
+.md-typeset .grid.cards > ul > li > p:first-child { margin-top: 0; }
+/* Glossary tooltips: subtle underline */
+.md-typeset abbr { text-decoration: none; border-bottom: 1px dotted var(--md-default-fg-color--lighter); }
+/* Paper/Tdoc info card: same width as the conclusion box */
+.md-typeset .csi-card .md-typeset__table { display: block; }
+.md-typeset .csi-card table:not([class]) { display: table; width: 100%; }

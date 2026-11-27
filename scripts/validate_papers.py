@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tdoc_companies import link_section  # noqa: E402
 from paper_schema import (  # noqa: E402
     ARXIV_ID, PAPERS_DIR, READ_LEVELS, REQUIRED, RUBRIC, SECTIONS, TAG_GROUPS, ALL_TAGS,
     EXCLUDED_FILE, STANDARD_LEVELS, TDOC_REQUIRED, TDOC_SECTIONS, TDOC_STATUS,
@@ -225,6 +226,14 @@ def main() -> int:
                 print(f"     - {e}")
         else:
             print(f"ok   {f}")
+        # Informational: company names in the topic tables that have no Tdoc link in the summary.
+        try:
+            _, body = split_front_matter(f.read_text(encoding="utf-8"))
+            unmatched = sorted(link_section(body)[1])
+        except Exception:  # noqa: BLE001 - reported by check_tdoc already
+            unmatched = []
+        if unmatched:
+            print(f"     info: 주제별 표에 있지만 Tdoc 링크가 없는 업체: {', '.join(unmatched)}")
     if tfiles:
         print(f"{len(tfiles) - tbad}/{len(tfiles)} tdoc summaries valid")
     return 1 if bad or tbad else 0

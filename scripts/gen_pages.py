@@ -21,6 +21,7 @@ import mkdocs_gen_files
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tdoc_companies import link_section  # noqa: E402
 from paper_schema import (  # noqa: E402
     ROOT, RUBRIC, RUBRIC_LABELS, TAG_GROUPS, agenda_short, as_list, first_sentence, load_agendas, load_papers,
     load_tdocs, plain, takeaway, tdoc_page_path,
@@ -283,6 +284,8 @@ def tdoc_page(meta: dict, body: str, papers: list[dict]) -> str:
     lines = ["---", yaml.safe_dump(fm, allow_unicode=True, sort_keys=False).strip(), "---", ""]
     if meta.get("status") == "provisional":
         lines += ['!!! warning "잠정"', "    회의 종료 의장 노트가 아직 없어 FL summary 기준으로 정리했습니다.", ""]
+    # Company names in the topic tables -> their Tdoc links, plus a per-company position table.
+    body, _ = link_section(body.strip())
     # Keep the summary's own H1 above the info card.
     body = body.strip()
     if body.startswith("# "):

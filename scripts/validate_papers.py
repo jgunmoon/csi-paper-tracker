@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paper_schema import (  # noqa: E402
     ARXIV_ID, PAPERS_DIR, READ_LEVELS, REQUIRED, RUBRIC, SECTIONS, TAG_GROUPS, ALL_TAGS,
     EXCLUDED_FILE, STANDARD_LEVELS, TDOC_REQUIRED, TDOC_SECTIONS, TDOC_STATUS,
+    RUBRIC_LABELS, TAKEAWAY_SECTION, score_reasons, takeaway,
     as_list, load_agendas, load_excluded, paper_files, split_front_matter, tdoc_files,
 )
 
@@ -125,6 +126,18 @@ def check(path: Path) -> list[str]:
             errs.append(f"missing body section '## {sec}'")
     if "## 점수 근거" not in body:
         errs.append("missing body section '## 점수 근거'")
+    else:
+        # The site shows per-item scores only from this table, so it must match the front matter.
+        reasons = score_reasons(body)
+        for item, max_pts in RUBRIC.items():
+            label, val = RUBRIC_LABELS[item], breakdown.get(item)
+            want = f"{val:g}/{max_pts}" if isinstance(val, (int, float)) else None
+            if label not in reasons:
+                errs.append(f"'## 점수 근거' table has no '{label}' row (n/{max_pts})")
+            elif want and reasons[label] != want:
+                errs.append(f"'## 점수 근거' {label} is {reasons[label]} but score_breakdown.{item} is {want}")
+    if TAKEAWAY_SECTION in headings and not takeaway(body):
+        errs.append(f"'## {TAKEAWAY_SECTION}' needs a first bullet (the page's one-line conclusion)")
     if level == "abstract-only" and ABSTRACT_BANNER not in body.lower():
         errs.append("read_level is abstract-only but the body has no 'abstract only' banner")
     return errs

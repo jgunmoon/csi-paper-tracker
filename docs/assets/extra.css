@@ -49,3 +49,17 @@ table.csi-compare td:last-child { white-space: nowrap; }
 @media (max-width: 600px) {
   .csi-recent table th:nth-child(3), .csi-recent table td:nth-child(3) { display: none; }
 }
+/* Paper page: conclusion box above the info card */
+.csi-verdict { padding: .7em 1em; margin: .6em 0 1.2em; border-left: .25em solid var(--md-primary-fg-color);
+  border-radius: .3em; background: var(--md-default-fg-color--lightest); font-size: .8rem; }
+.csi-verdict p { margin: .35em 0; }
+.csi-verdict p:first-child { font-size: .9rem; }
+.csi-verdict p:not(:first-child) { padding-left: 7.5em; text-indent: -7.5em; }  /* hanging indent under the label */
+.csi-label { display: inline-block; width: 7.5em; text-indent: 0; font-weight: 700; color: var(--md-default-fg-color--light); }
+@media (max-width: 600px) {
+  .csi-verdict p:not(:first-child) { padding-left: 0; text-indent: 0; }
+  .csi-label { display: block; width: auto; }
+}
+/* One-line takeaway under titles in the compare table and on the home page */
+.csi-takeaway { display: block; margin-top: .25em; font-size: .68rem; line-height: 1.45;
+  color: var(--md-default-fg-color--light); }

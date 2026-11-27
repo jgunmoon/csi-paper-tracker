@@ -244,4 +244,15 @@ front matter 필수 키: `arxiv_id, title, authors, affiliation, venue, date, li
 
 본문 필수 섹션: `Key idea / System model / Simulation setup / Results (baseline 대비) / Limitations / 우리 업무 관점 코멘트 / 점수 근거`
 
+사이트에서 논문 페이지 맨 위 **결론 박스**는 따로 적지 않고 기존 내용에서 만들어집니다.
+
+| 박스 줄 | 가져오는 곳 |
+|---|---|
+| 점수 · 3GPP 관련성 | `score`, `score_breakdown.standard` |
+| 3GPP 안건 | `ran1_meeting`, `ran1_agenda` (Tdoc 요약이 있으면 링크) |
+| 핵심 결과 | `headline_result` |
+| 우리 업무 관점 | "우리 업무 관점 코멘트"의 첫 bullet (굵은 `RAN1#… 안건 대응: …` 머리말 제외). 첫 문장은 홈·비교 표에도 나옴 |
+
+항목별 점수는 본문 `## 점수 근거` 표로 보여 주므로, 표의 `n/배점` 값은 `score_breakdown` 과 같아야 합니다 (`validate_papers.py` 가 확인).
+
 자세한 양식은 `.claude/skills/csi-paper-review/template.md` 를 보세요.

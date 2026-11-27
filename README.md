@@ -1,6 +1,6 @@
 # NR/6G CSI Tracker
 
-**arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약** (저장소 이름: `csi-paper-tracker`)
+**CSI Compression · Prediction · Acquisition**: arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약 (저장소 이름: `csi-paper-tracker`)
 
 NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규 논문을 주기적으로 찾아 key idea와 시뮬레이션 결과를 요약하고,
 **현재 3GPP RAN1 안건과의 관련성**과 신뢰도를 점수로 매겨 팀이 함께 보는 트래커입니다.

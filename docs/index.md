@@ -5,7 +5,7 @@ hide: [navigation, toc]
 
 # NR/6G CSI Tracker
 
-<p class="csi-subtitle">arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약</p>
+<p class="csi-subtitle"><span class="csi-subtitle-en">CSI Compression · Prediction · Acquisition</span><br>arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약</p>
 
 NR/6G **CSI 압축·예측·획득** 연구를 두 갈래로 추적하는 팀 트래커입니다.
 매주 새 arXiv 논문을 읽어 요약·채점하고, RAN1 회의가 끝나면 관련 안건의 합의 사항과 업체 입장을 정리합니다.

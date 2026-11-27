@@ -87,3 +87,5 @@ a.csi-tag:hover { background: var(--md-accent-fg-color--transparent); }
 /* Paper/Tdoc info card: same width as the conclusion box */
 .md-typeset .csi-card .md-typeset__table { display: block; }
 .md-typeset .csi-card table:not([class]) { display: table; width: 100%; }
+/* Home subtitle: English scope keywords above the Korean line */
+.csi-subtitle-en { font-weight: 600; letter-spacing: .02em; color: var(--md-default-fg-color); }

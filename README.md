@@ -1,7 +1,10 @@
-# csi-paper-tracker
+# NR/6G CSI Tracker
+
+**arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약** (저장소 이름: `csi-paper-tracker`)
 
 NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규 논문을 주기적으로 찾아 key idea와 시뮬레이션 결과를 요약하고,
 **현재 3GPP RAN1 안건과의 관련성**과 신뢰도를 점수로 매겨 팀이 함께 보는 트래커입니다.
+관련 RAN1 안건은 회의마다 Tdoc(합의 사항, 업체별 입장, 평가 결과)을 안건별로 요약해 논문과 연결합니다.
 
 - 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
 - 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.

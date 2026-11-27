@@ -1,5 +1,5 @@
-site_name: CSI Paper Tracker
-site_description: NR/6G CSI compression·prediction 논문 리뷰 트래커
+site_name: NR/6G CSI Tracker
+site_description: arXiv 논문 리뷰 · 3GPP RAN1 Tdoc 요약 (NR/6G CSI 압축·예측·획득)
 site_url: https://jgunmoon.github.io/csi-paper-tracker/
 repo_url: https://github.com/jgunmoon/csi-paper-tracker
 repo_name: jgunmoon/csi-paper-tracker

@@ -63,3 +63,5 @@ table.csi-compare td:last-child { white-space: nowrap; }
 /* One-line takeaway under titles in the compare table and on the home page */
 .csi-takeaway { display: block; margin-top: .25em; font-size: .68rem; line-height: 1.45;
   color: var(--md-default-fg-color--light); }
+/* Home subtitle under the site title */
+.csi-subtitle { margin-top: -.6em; font-size: .9rem; font-weight: 500; color: var(--md-default-fg-color--light); }

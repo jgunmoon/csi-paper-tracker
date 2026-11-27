@@ -30,7 +30,7 @@ from paper_schema import (  # noqa: E402
 KST = dt.timezone(dt.timedelta(hours=9), "KST")
 WEEKLY_RUN = (0, 8)          # Monday 08:00 KST (claude.ai scheduled task "Weekly CSI paper review")
 RECENT_DAYS = 14             # home page: papers reviewed within this many days of the newest review
-RECENT_MAX = 8
+RECENT_MAX = 6
 HOME_MARKER = "<!-- home:latest -->"
 
 GROUP_LABELS = {"topic": "주제", "method": "방법", "system": "시스템"}
@@ -70,6 +70,34 @@ def agenda_token(item: dict) -> str:
     return f"agenda-{item['meeting']}-{item['id']}".replace(" ", "")
 
 
+# Korean labels for agenda items without a RAN1 summary (those with one use the summary's own short title).
+AGENDA_KO = {
+    "9.1": "NR AI/ML", "9.2": "NR MIMO Phase 6", "10.5": "6GR 다중 안테나", "10.5.1.1": "6GR 동기·빔 측정",
+    "10.5.2": "6GR MIMO 동작", "10.5.2.1": "6GR 하향 제어채널 전송", "10.5.2.2": "6GR 하향 데이터채널 전송",
+    "10.5.2.3": "6GR 상향 전송", "10.5.3": "6GR CSI 획득·보고", "10.5.3.3": "6GR CSI 기타", "10.5.3.4": "6GR 빔 관리",
+}
+
+
+def agenda_label(item: dict) -> str:
+    """'9.1.1 Case 0 CSI 압축 (two-sided 모델)'-style Korean label of an agenda item."""
+    key = (item["meeting"], item["id"])
+    if key in TDOCS:
+        _, tmeta, tbody = TDOCS[key]
+        return tdoc_short_title(tmeta, tbody)
+    if item["id"] in AGENDA_KO:
+        return f"{item['id']} {AGENDA_KO[item['id']]}"
+    return agenda_short(item, 40)
+
+
+def trim(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def agenda_anchor(agenda_id: str | None) -> str:
+    """Heading id of an agenda group on the paper list, e.g. '9.1.1' -> 'a-9-1-1', None -> 'a-none'."""
+    return "a-" + (agenda_id.replace(".", "-") if agenda_id else "none")
+
+
 def agenda_md(item: dict, base: str = "") -> str:
     """Markdown label of an agenda item: the Korean short title of its RAN1 summary (linked) when one
     exists, else the snapshot title. `base` is the relative prefix to the docs root ('' or '../')."""
@@ -77,7 +105,7 @@ def agenda_md(item: dict, base: str = "") -> str:
     if key in TDOCS:
         _, tmeta, tbody = TDOCS[key]
         return f"[{esc(tdoc_short_title(tmeta, tbody))}]({base}{tdoc_page_path(*key)})"
-    return esc(agenda_short(item, 40))
+    return esc(agenda_label(item))
 
 
 def esc(value) -> str:
@@ -96,8 +124,13 @@ def paper_page(meta: dict, body: str) -> str:
     """Paper page: conclusion box (score, agenda, headline, takeaway) first, then the info card and the body.
     The per-item scores live in the body's '## 점수 근거' table (validated against the front matter)."""
     aid = meta["arxiv_id"]
-    fm = {"title": meta["title"], "tags": as_list(meta.get("tags"))}
+    fm = {"title": meta["title"], "hide": ["navigation"]}  # not in the menu, so no empty left column
     lines = ["---", yaml.safe_dump(fm, allow_unicode=True, sort_keys=False).strip(), "---", ""]
+    # Paper pages are not in the menu (it would grow every week); this path shows where the page sits.
+    crumbs = [f'<a href="../#{agenda_anchor(it["id"])}">{esc(agenda_label(it))}</a>' for it in agenda_items(meta)]
+    crumbs = crumbs or [f'<a href="../#{agenda_anchor(None)}">직접 해당 없음</a>']
+    lines.append(f'<p class="csi-crumb"><a href="../">논문 목록</a> › {" · ".join(crumbs)}</p>')
+    lines.append("")
     lines.append(f"# {meta['title']}")
     lines.append("")
     if meta.get("read_level") == "abstract-only":
@@ -122,21 +155,26 @@ def paper_page(meta: dict, body: str) -> str:
         "</div>",
         "",
     ]
-    tag_html = " ".join(f'<span class="csi-tag">{esc(t)}</span>' for t in as_list(meta.get("tags")))
+    def tag_link(tag: str) -> str:
+        group = next((g for g, tags in TAG_GROUPS.items() if tag in tags), None)
+        href = f"../../compare/?{group}={tag}" if group else "../../compare/"
+        return f'<a class="csi-tag" href="{esc(href)}" title="비교 표에서 {esc(tag)} 논문만 보기">{esc(tag)}</a>'
+    tag_html = " ".join(tag_link(t) for t in as_list(meta.get("tags")))
+    read = "전문 읽음" if meta.get("read_level") == "full" else "초록만 읽음"
     lines += [
         '<div class="csi-card" markdown>',
         "",
         "| | |",
         "|---|---|",
         f"| **arXiv** | [{aid}]({meta['link']}) · v1 {meta.get('date', '?')} |",
-        f"| **Authors** | {', '.join(as_list(meta.get('authors')))} |",
-        f"| **Affiliation** | {'; '.join(as_list(meta.get('affiliation')))} |",
-        f"| **Venue** | {meta.get('venue', '?')} |",
-        f"| **Tags** | {tag_html} |",
-        f"| **Metrics** | {', '.join(as_list(meta.get('metrics')))} |",
-        f"| **Channel model** | {meta.get('channel_model', '?')} |",
-        f"| **Compression / payload** | {meta.get('compression_ratio', '?')} |",
-        f"| **Reviewed** | {meta.get('reviewed', '?')} ({meta.get('read_level', '?')}) |",
+        f"| **저자** | {', '.join(as_list(meta.get('authors')))} |",
+        f"| **소속** | {'; '.join(as_list(meta.get('affiliation')))} |",
+        f"| **게재** | {meta.get('venue', '?')} |",
+        f"| **태그** | {tag_html} |",
+        f"| **지표** | {', '.join(as_list(meta.get('metrics')))} |",
+        f"| **채널 모델** | {meta.get('channel_model', '?')} |",
+        f"| **압축률 / payload** | {meta.get('compression_ratio', '?')} |",
+        f"| **리뷰** | {meta.get('reviewed', '?')} · {read} |",
         "",
         "</div>",
         "",
@@ -174,7 +212,7 @@ def compare_page(papers: list[dict]) -> str:
     out.append('<div class="csi-filter-group" data-group="agenda"><span class="csi-filter-label">3GPP 안건</span>')
     for token, it in sorted(seen.items(), key=lambda kv: [int(x) for x in kv[1]["id"].split(".") if x.isdigit()]):
         out.append(f'<button type="button" class="csi-filter" data-tag="{esc(token)}" data-key="{esc(agenda_key(it))}" aria-pressed="false" '
-                   f'title="{esc(it["meeting"] + " " + it["id"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 28))}</button>')
+                   f'title="{esc(it["meeting"] + " " + it["id"] + " " + it.get("title", ""))}">{esc(trim(agenda_label(it), 26))}</button>')
     out.append(f'<button type="button" class="csi-filter" data-tag="{NO_AGENDA}" data-key="none" aria-pressed="false">직접 해당 없음</button>')
     out.append("</div>")
     # Single-choice groups: v1 period and minimum total score ("all" = no limit).
@@ -210,7 +248,7 @@ def compare_page(papers: list[dict]) -> str:
         level = (m.get("score_breakdown") or {}).get("standard", "?")
         cells = []
         for it in items:
-            text = f'<span title="{esc(it["meeting"] + " " + it.get("title", ""))}">{esc(agenda_short(it, 40))}</span>'
+            text = f'<span title="{esc(it["meeting"] + " " + it.get("title", ""))}">{esc(agenda_label(it))}</span>'
             url = tdoc_url(it, 1)
             if url:
                 text += f'<div class="csi-sub"><a href="{esc(url)}">Tdoc 요약 →</a></div>'
@@ -249,14 +287,45 @@ def compare_page(papers: list[dict]) -> str:
 
 
 def index_page(papers: list[dict]) -> str:
-    out = ["---", "title: 전체 논문", "---", "", "# 전체 논문", "", "최근 제출(v1) 순입니다.", "",
-           "| v1 | 논문 | 태그 | 점수 |", "|---|---|---|---:|"]
+    """Paper list grouped by 3GPP agenda item (score order inside a group); 'no direct item' last.
+    A paper mapped to two items is listed under both."""
+    groups: dict[str | None, dict] = {}
     for m in papers:
-        tags = " ".join(f"`{t}`" for t in as_list(m.get("tags")))
-        flag = " ⚠️" if m.get("read_level") == "abstract-only" else ""
-        out.append(f"| {m.get('date', '')} | [{m['title']}]({m['arxiv_id']}.md){flag} | {tags} | {m.get('score', '?')} |")
+        for it in agenda_items(m) or [None]:
+            key = it["id"] if it else None
+            g = groups.setdefault(key, {"label": agenda_label(it) if it else "현재 안건에 직접 해당 없음", "papers": []})
+            g["papers"].append(m)
+    order = sorted((k for k in groups if k), key=agenda_sort_key) + ([None] if None in groups else [])
+    out = ["---", "title: 논문 목록", "hide: [toc]", "---", "", "# 논문 목록", "",
+           f"리뷰한 논문 {len(papers)}편을 **대응하는 3GPP RAN1 안건별로** 묶었습니다. 묶음 안에서는 점수 높은 순이고, "
+           "제목 아래 회색 글은 우리 업무 관점의 한 줄 결론입니다. 지표·채널 모델·성능을 나란히 보거나 여러 조건으로 거르려면 "
+           "**[비교 표](../compare.md)** 를 쓰세요. 점수 뜻은 [점수 기준](../rubric.md)에 있습니다.", "",
+           '<div class="csi-chips">']
+    for key in order:
+        g = groups[key]
+        out.append(f'<a class="csi-chip" href="#{agenda_anchor(key)}">{esc(trim(g["label"], 30))} <span>{len(g["papers"])}</span></a>')
+    out += ["</div>", ""]
+    for key in order:
+        g = groups[key]
+        out += [f"## {g['label']} {{#{agenda_anchor(key)}}}", ""]
+        if key:
+            sample = next(it for it in agenda_items(g["papers"][0]) if it["id"] == key)
+            if (sample["meeting"], key) in TDOCS:
+                out += [f'<p class="csi-sub">이 안건의 RAN1 논의: <a href="../{tdoc_url(sample, 0)}">{esc(sample["meeting"])} Tdoc 요약 →</a></p>', ""]
+        out += ["| 점수 | 논문 | v1 | 태그 |", "|---:|---|---|---|"]
+        for m in sorted(g["papers"], key=lambda x: (-float(x.get("score", 0)), str(x.get("arxiv_id")))):
+            score = f'<span class="csi-score {score_class(m.get("score"))}">{esc(m.get("score", "?"))}</span>'
+            point = first_sentence(m.get("_takeaway", "")).replace("|", "\\|")
+            title = f"[{esc(m['title'])}]({m['arxiv_id']}.md)"
+            if m.get("read_level") == "abstract-only":
+                title += ' <span class="csi-flag" title="abstract only">abs</span>'
+            if point:
+                title += f'<br><span class="csi-takeaway">{point}</span>'
+            tags = " ".join(f'<span class="csi-tag">{esc(t)}</span>' for t in as_list(m.get("tags")))
+            out.append(f"| {score} | {title} | {m.get('date', '')} | {tags} |")
+        out.append("")
     if not papers:
-        out.append("| | 아직 등록된 논문이 없습니다. | | |")
+        out.append("아직 등록된 논문이 없습니다.")
     return "\n".join(out) + "\n"
 
 
@@ -524,7 +593,7 @@ def home_latest(papers: list[dict], tdoc_entries: list[tuple[Path, dict, str]]) 
         recent.sort(key=lambda m: (-float(m.get("score", 0)), str(m.get("arxiv_id"))))
         out += [f'<p class="csi-sub">리뷰일 {since:%Y-%m-%d} ~ {newest:%Y-%m-%d}, 점수 순 (최대 {RECENT_MAX}편)</p>', "",
                 '<div class="csi-recent" markdown>', "",
-                "| 점수 | 논문 | 3GPP 안건 | 주요 성능 (baseline 대비) |", "|---:|---|---|---|"]
+                "| 점수 | 논문 · 한 줄 결론 | 3GPP 안건 |", "|---:|---|---|"]
         for m in recent[:RECENT_MAX]:
             agenda = "<br>".join(agenda_md(it) for it in agenda_items(m)) or '<span class="csi-sub">직접 해당 없음</span>'
             score = f'<span class="csi-score {score_class(m.get("score"))}">{esc(m.get("score", "?"))}</span>'
@@ -532,8 +601,8 @@ def home_latest(papers: list[dict], tdoc_entries: list[tuple[Path, dict, str]]) 
             title = f"[{esc(m['title'])}](papers/{m['arxiv_id']}.md)"
             if point:
                 title += f'<br><span class="csi-takeaway">{point}</span>'
-            out.append(f"| {score} | {title} | {agenda} | {esc(m.get('headline_result', ''))} |")
-        out += ["", "</div>", "", "[전체 비교 표 →](compare.md)", ""]
+            out.append(f"| {score} | {title} | {agenda} |")
+        out += ["", "</div>", "", "[논문 목록 →](papers/index.md) · [비교 표 →](compare.md)", ""]
     else:
         out += ["아직 등록된 논문이 없습니다.", ""]
     if latest_meeting:
@@ -564,10 +633,8 @@ def main() -> None:
         f.write(index_page(metas))
     with mkdocs_gen_files.open("compare.md", "w") as f:
         f.write(compare_page(metas))
-    nav = ["* [홈](index.md)", "* [비교 표](compare.md)", "* [태그](tags.md)", "* [논문](papers/index.md)"]
-    for m in metas:
-        short = m["title"] if len(m["title"]) <= 60 else m["title"][:57].rstrip() + "…"
-        nav.append(f"    * [{m['arxiv_id']} · {short}](papers/{m['arxiv_id']}.md)")
+    # Individual papers stay out of the menu (it grows every week); the paper list groups them by agenda.
+    nav = ["* [홈](index.md)", "* 논문", "    * [논문 목록](papers/index.md)", "    * [비교 표](compare.md)"]
     tdoc_entries = load_tdocs()
     for path, tmeta, tbody in tdoc_entries:
         virtual = tdoc_page_path(str(tmeta["meeting"]), str(tmeta["agenda"]))
@@ -593,7 +660,7 @@ def main() -> None:
             else:  # several meetings: agenda becomes a sub-section, newest meeting first
                 nav.append(f"        * {it['short']}")
                 nav += [f"            * [{m}]({tdoc_page_path(m, it['agenda'])})" for m in ms]
-    nav.append("* [점수 기준](rubric.md)")
+    nav += ["* 안내", "    * [사용 안내](guide.md)", "    * [점수 기준](rubric.md)"]
     with mkdocs_gen_files.open("SUMMARY.md", "w") as f:
         f.write("\n".join(nav) + "\n")
     with mkdocs_gen_files.open("rubric.md", "w") as f:

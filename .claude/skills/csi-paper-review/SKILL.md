@@ -66,6 +66,7 @@ python scripts/arxiv_search.py --weeks <N> --out $WORK/candidates.json
 
 후보마다 초록을 읽고 **3GPP 관련성 등급**(rubric 1번 `standard`)을 먼저 정한다.
 
+<!-- relevance:start -->
 | 등급 | 기준 | `ran1_agenda` |
 |---|---|---|
 | 15 | 0.5단계 안건 항목의 **핵심 대상과 직접 일치**하고, 평가도 3GPP 방식(38.901 채널 + NR/6G 파라미터 + SGCS/NMSE 또는 SLS/LLS) | 해당 항목 ID |
@@ -75,8 +76,12 @@ python scripts/arxiv_search.py --weeks <N> --out $WORK/candidates.json
 
 - **0등급은 점수와 상관없이 요약하지 않는다.** PR 점수표에 "3GPP 관련성 0"으로 남긴다.
 - 안건 대응 예: two-sided AI CSI 압축(공간·주파수) → `9.1.1`, 모델·데이터셋 공유/표준화 모델 구조 → `9.1.2`,
-  NR 코드북·CSI 보고 개선 → `9.2`, 6G 하향링크 CSI 측정·보고 → `10.5.3.1`, SRS·상호성 기반 CSI → `10.5.3.2`, 빔 관리 → `10.5.3.4`.
+  NR MIMO Ph6 조기 CSI/SRS 트리거(SCell 활성화·MSG4 등) → `9.2`, 6G 하향링크 CSI 측정·보고·코드북 → `10.5.3.1`,
+  SRS·상호성 기반 CSI → `10.5.3.2`, 빔 관리 → `10.5.3.4`. 안건 제목만 보고 고르지 말고, 해당 회의 Tdoc 요약(`tdocs/`)이 있으면 실제 논의 주제를 확인한다
+  (예: RAN1#127의 9.2는 코드북이 아니라 조기 CSI/SRS 트리거를 다룬다).
   항목 ID는 반드시 0.5단계 스냅샷에 있는 것만 쓴다.
+<!-- relevance:end -->
+<!-- 위 relevance 구간과 아래 rubric 구간은 사이트 '점수 기준' 페이지로 그대로 복사된다 (scripts/gen_pages.py). -->
 
 1–7등급 논문에 대해 초록·`comment`·`journal_ref`만으로 **예비 점수**(아래 rubric, 모르는 항목은 0)를 매기고,
 상위 `2×top`편(최대 16편)을 3단계로 넘긴다.

@@ -6,6 +6,75 @@ NR/6G **CSI compression(feedback)·prediction·acquisition** 관련 arXiv 신규
 - 사이트: https://jgunmoon.github.io/csi-paper-tracker/ (main에 병합되면 GitHub Actions가 배포)
 - 논문 1편 = `papers/<arxiv-id>.md` 1파일. 사이트의 논문 페이지, 비교 표, 태그 목록은 모두 이 파일에서 만들어집니다.
 
+## Claude와 GitHub는 각각 무엇을 하나
+
+| 누가 | 비유 | 하는 일 |
+|---|---|---|
+| **Claude** (claude.ai 예약 작업 / Claude Code) | 연구원 | 논문 찾기, **관련성 판단**(3GPP 안건 대응), 읽기, 그래프 수치 읽기, 채점, 요약, 코멘트 → 커밋하고 PR 제출 |
+| **GitHub 저장소** | 업무 매뉴얼 + 도구함 + 보관함 | Claude가 따를 지침과 도구, 지금까지의 결과물을 보관 |
+| **GitHub Actions / Pages** | 검사·게시 기계 | PR 자동 검사, main 병합 시 사이트 자동 배포 (Claude를 부르지 않음) |
+| **사람(팀)** | 팀장 | PR을 보고 **병합** = 승인 |
+
+### Claude가 하는 일
+
+- **매주 자동 수집**: 월요일 08:00(KST)에 claude.ai 예약 작업이 클라우드 세션을 새로 시작합니다. 실행 위치는 Anthropic 클라우드이고 GitHub가 아닙니다.
+- **실행 과정**: 저장소를 받아 `.claude/skills/csi-paper-review/SKILL.md` 절차대로 일합니다.
+  - 판단이 필요한 부분(관련성, 채점, 요약)은 Claude가 직접 합니다.
+  - 반복 작업(검색, 다운로드, 그림 캡처, 형식 검사)은 `scripts/`의 도구를 실행해서 합니다.
+- **결과 제출**: 결과는 항상 PR로 냅니다. main에 직접 넣지 않습니다.
+- **3GPP Tdoc 요약**: 예약 작업이 아닙니다. RAN1 회의가 끝난 뒤 Claude Code에서 `/ran1-tdoc-review`로 요청할 때만 실행됩니다.
+
+### GitHub 저장소 파일의 역할
+
+예약 작업 세션은 매번 **기억 없이 새로** 시작합니다. 그래서 "어떻게 일할지"와 "지금까지 한 일"을 저장소에 두고, Claude가 매주 저장소를 받아 이어서 일합니다.
+
+| 파일 | 역할 | 비유 |
+|---|---|---|
+| `.claude/skills/*/SKILL.md` | 작업 절차·채점 기준 | 업무 매뉴얼 |
+| `scripts/` | arXiv 검색, 원문·그림 받기, 3GPP 안건·Tdoc 받기, 형식 검사, 사이트 페이지 생성 (판단 없는 반복 작업) | 도구함 |
+| `config/` | 검색 키워드, 제외 목록, RAN1 안건 스냅샷 | 설정표 |
+| `papers/`, `tdocs/` | 논문 요약, Tdoc 요약 | 결과물 보관함 |
+| `docs/`, `mkdocs.yml` | 사이트 틀(메뉴·디자인) | 게시판 양식 |
+| `.github/workflows/pages.yml` | Actions의 검사·배포 지시 | 게시 기계 설정 |
+
+이렇게 하면 다음이 가능합니다.
+- **같은 방식 유지**: 매주 같은 절차와 기준으로 일합니다.
+- **중복 방지**: `papers/`에 이미 있는 논문은 다시 찾지 않습니다.
+- **지침 수정 반영**: 팀이 SKILL.md나 `config/search.yaml`을 고치면 다음 실행부터 Claude의 방식이 바뀝니다.
+
+### GitHub가 하는 일 (Claude 없이 자동)
+
+1. **보관**: 모든 변경 이력(누가, 언제, 무엇을)
+2. **검토 창구(PR)**: Claude의 결과물이 바로 사이트에 오르지 않고 사람이 병합해야 반영됩니다.
+3. **자동 검사(Actions)**: PR마다 `validate_papers.py`와 `mkdocs build --strict`를 실행합니다.
+4. **자동 배포(Pages)**: main에 병합되면 사이트를 다시 만들어 게시합니다. 페이지 하단의 "마지막 업데이트" 시각이 이때 찍힙니다.
+
+Actions는 정해진 스크립트만 실행하고 Claude를 호출하지 않으므로 Claude 사용량과 무관합니다.
+
+### 사람이 꼭 해야 하는 일: PR 병합
+
+"병합"은 PR 페이지 아래쪽의 **Merge pull request → Confirm merge** 두 버튼을 차례로 누르는 것입니다. 두 번째 버튼까지 눌러야 완료되고, PR 상태가 보라색 **Merged**로 바뀝니다.
+이 저장소는 별도 승인 리뷰(Approve)를 요구하지 않으므로 병합이 곧 승인입니다.
+
+- 병합 전에 확인할 것: PR 본문의 점수표, 추가된 요약, 자동 검사 결과(초록색 체크)
+- 빼고 싶은 논문이 있으면 병합 전에 Claude에게 "이 논문 빼 줘"라고 요청합니다. 파일 삭제와 제외 목록 추가를 함께 처리합니다.
+- 병합하지 않은 PR의 내용은 사이트에 나타나지 않습니다.
+
+### 매주 흐름
+
+```
+[월 08:00] Claude 예약 작업 시작 (claude.ai)
+   │  저장소를 받아 SKILL.md(매뉴얼)를 읽음
+   │  scripts로 검색·다운로드 → Claude가 판단·채점·요약
+   │  papers/에 파일 추가 → PR 제출
+   ▼
+[GitHub] PR 자동 검사 (Actions)
+   ▼
+[사람] PR 확인 → Merge pull request → Confirm merge
+   ▼
+[GitHub] main 반영 → 사이트 자동 재배포 (Pages)
+```
+
 ## 구조
 
 ```
